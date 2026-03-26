@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { ActionSource, PowerAction } from "../store";
 import { ACTION_META } from "../utils";
 import { Btn } from "./ui";
@@ -13,15 +13,20 @@ export const ActionConfirmModal: React.FC<{
 }> = ({ action, source, label, seconds = 5, onConfirm, onCancel }) => {
   const [count, setCount] = useState(seconds);
   const meta = ACTION_META[action];
+  const onConfirmRef = useRef(onConfirm);
+
+  useEffect(() => {
+    onConfirmRef.current = onConfirm;
+  }, [onConfirm]);
 
   useEffect(() => {
     if (count <= 0) {
-      onConfirm();
+      onConfirmRef.current();
       return;
     }
     const id = setTimeout(() => setCount((c) => c - 1), 1000);
     return () => clearTimeout(id);
-  }, [count, onConfirm]);
+  }, [count]);
 
   const circ = 2 * Math.PI * 32;
   const offset = circ * (count / seconds);
@@ -111,20 +116,19 @@ export const ActionConfirmModal: React.FC<{
           <span style={{ color: "var(--text-secondary)" }}>{label}</span>
         </div>
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 18 }}>
-          <Btn variant="ghost" onClick={onCancel}>
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <Btn variant="danger" style={{ flex: 1 }} onClick={onCancel}>
             Cancel
           </Btn>
           <Btn
             variant="primary"
+            style={{ flex: 1, background: meta.color, color: "#0a0c10" }}
             onClick={onConfirm}
-            style={{ background: meta.color, color: "#0a0c10" }}
           >
-            Execute now
+            {meta.label} Now
           </Btn>
         </div>
       </div>
     </div>
   );
 };
-

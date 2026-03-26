@@ -105,7 +105,7 @@ export const TitleBar: React.FC = () => {
               "var(--text-muted)";
           }}
         >
-          ⏱
+          ⊟
         </button>
 
         {/* Minimize */}

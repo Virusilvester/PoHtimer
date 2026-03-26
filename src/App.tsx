@@ -260,6 +260,7 @@ const App: React.FC = () => {
         <DesktopOverlay />
         {shouldConfirm && current && (
           <ActionConfirmModal
+            key={current.id}
             action={current.action}
             source={current.source}
             label={current.label}
@@ -293,6 +294,7 @@ const App: React.FC = () => {
       </div>
       {shouldConfirm && current && (
         <ActionConfirmModal
+          key={current.id}
           action={current.action}
           source={current.source}
           label={current.label}
