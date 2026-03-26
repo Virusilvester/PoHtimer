@@ -1,0 +1,119 @@
+:root {
+  /* Core palette — deep slate with electric amber accent */
+  --bg-base:       #0a0c10;
+  --bg-surface:    #111318;
+  --bg-elevated:   #181c24;
+  --bg-overlay:    #1e232e;
+  --bg-hover:      #242a36;
+
+  --border:        rgba(255,255,255,0.07);
+  --border-accent: rgba(255,185,0,0.35);
+
+  --text-primary:   #f0f2f5;
+  --text-secondary: #8a91a0;
+  --text-muted:     #4a5168;
+
+  --accent:        #ffb900;
+  --accent-dim:    rgba(255,185,0,0.15);
+  --accent-glow:   rgba(255,185,0,0.25);
+  --accent-shadow: rgba(255,185,0,0.10);
+  --accent-strong: rgba(255,185,0,0.60);
+  --accent-glow-strong: rgba(255,185,0,0.50);
+
+  --danger:        #ff4d4d;
+  --danger-dim:    rgba(255,77,77,0.15);
+  --warn:          #ff8c00;
+  --success:       #00d97e;
+  --info:          #3b9eff;
+
+  --radius-sm:     6px;
+  --radius-md:     10px;
+  --radius-lg:     16px;
+  --radius-xl:     24px;
+
+  --shadow-sm:  0 1px 4px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg:  0 12px 40px rgba(0,0,0,0.6);
+  --shadow-accent: 0 0 30px rgba(255,185,0,0.12);
+
+  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-body:    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono:    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+  --transition-spring: 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+:root[data-theme="midnight"] {
+  --bg-base: #070913;
+  --bg-surface: #0c1020;
+  --bg-elevated: #121a2c;
+  --bg-overlay: #18203a;
+  --bg-hover: #1f2846;
+  --text-muted: #5c6b8f;
+}
+
+:root[data-theme="amber"] {
+  --bg-base: #0f0b05;
+  --bg-surface: #161009;
+  --bg-elevated: #1d160d;
+  --bg-overlay: #231a10;
+  --bg-hover: #2c2115;
+  --text-muted: #6d5b42;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-overlay); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+button { font-family: var(--font-body); cursor: pointer; border: none; outline: none; }
+input, select, textarea { font-family: var(--font-body); outline: none; }
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection { background: var(--accent-dim); color: var(--accent); }
+
+/* Utility animations */
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+@keyframes slide-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+@keyframes count-tick {
+  0%   { transform: translateY(-4px); opacity: 0; }
+  30%  { transform: translateY(0);    opacity: 1; }
+  70%  { transform: translateY(0);    opacity: 1; }
+  100% { transform: translateY(4px);  opacity: 0; }
+}
+@keyframes glow-pulse {
+  0%,100% { box-shadow: 0 0 20px var(--accent-glow); }
+  50%      { box-shadow: 0 0 40px rgba(255,185,0,0.4); }
+}
+@keyframes sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
