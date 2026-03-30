@@ -91,6 +91,14 @@ export const TauriCommands = {
     return invokeCommand("window_close");
   },
 
+  async startDragging() {
+    return invokeCommand("start_dragging");
+  },
+
+  async exitApp() {
+    return invokeCommand("exit_app");
+  },
+
   async setAutostart(enabled: boolean) {
     return invokeCommand("set_autostart", { enabled });
   },
@@ -126,6 +134,9 @@ export const TauriCommands = {
   },
 
   async sendNotification(title: string, body: string) {
+    if (isTauri()) {
+      return invokeCommand("send_notification", { title, body });
+    }
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(title, { body });
     }

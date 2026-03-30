@@ -1,4 +1,6 @@
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use std::sync::{Mutex, OnceLock};
 
 fn spawn_cmd(program: &str, args: &[&str]) -> Result<(), String> {
@@ -200,6 +202,7 @@ fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result
 
     win.set_decorations(false).map_err(|e| e.to_string())?;
     win.set_always_on_top(true).map_err(|e| e.to_string())?;
+    let _ = win.set_skip_taskbar(true);
 
     let size = size.clamp(100, 420);
     let pad = 44;
@@ -218,21 +221,40 @@ fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result
 fn restore_from_overlay(app: tauri::AppHandle) -> Result<(), String> {
     let win = main_window(&app)?;
     win.set_always_on_top(false).map_err(|e| e.to_string())?;
-    win.set_decorations(true).map_err(|e| e.to_string())?;
+    win.set_decorations(false).map_err(|e| e.to_string())?;
+    let _ = win.set_skip_taskbar(false);
     win.set_size(tauri::Size::Physical(tauri::PhysicalSize {
         width: 980,
         height: 680,
     }))
     .map_err(|e| e.to_string())?;
+    let _ = win.center();
 
     Ok(())
 }
 
 #[tauri::command]
 fn window_minimize(app: tauri::AppHandle) -> Result<(), String> {
-    main_window(&app)?
-        .minimize()
-        .map_err(|e| e.to_string())
+    hide_main_window(app)
+}
+
+#[tauri::command]
+fn start_dragging(app: tauri::AppHandle) -> Result<(), String> {
+    main_window(&app)?.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    let win = main_window(&app)?;
+    win.show().map_err(|e| e.to_string())?;
+    win.set_focus().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    let win = main_window(&app)?;
+    win.hide().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -248,13 +270,26 @@ fn window_toggle_maximize(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn window_close(app: tauri::AppHandle) -> Result<(), String> {
-    main_window(&app)?.close().map_err(|e| e.to_string())
+    hide_main_window(app)
 }
 
 // ── Notification ─────────────────────────────────────────────
 #[tauri::command]
-fn send_notification(title: String, body: String) -> Result<(), String> {
+fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
     let _ = (title, body);
+    let win = main_window(&app)?;
+    let visible = win.is_visible().unwrap_or(true);
+    if !visible {
+        let _ = win.show();
+    }
+    let _ = win.set_focus();
+    let _ = win.request_user_attention(Some(tauri::UserAttentionType::Informational));
+    Ok(())
+}
+
+#[tauri::command]
+fn exit_app(app: tauri::AppHandle) -> Result<(), String> {
+    app.exit(0);
     Ok(())
 }
 
@@ -315,6 +350,47 @@ fn get_autostart_enabled() -> Result<bool, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            let show = MenuItem::with_id(app, "show", "Open PoHtimer", true, None::<&str>)?;
+            let hide = MenuItem::with_id(app, "hide", "Hide to Tray", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
+
+            let icon = app
+                .default_window_icon()
+                .cloned()
+                .ok_or_else(|| "missing tray icon".to_string())?;
+
+            TrayIconBuilder::new()
+                .icon(icon)
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        let _ = show_main_window(app.clone());
+                        let _ = app.emit("poh://restore-app", ());
+                    }
+                    "hide" => {
+                        let _ = hide_main_window(app.clone());
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::DoubleClick { button, .. } = event {
+                        if button == MouseButton::Left {
+                            let app = tray.app_handle().clone();
+                            let _ = show_main_window(app.clone());
+                            let _ = app.emit("poh://restore-app", ());
+                        }
+                    }
+                })
+                .build(app)?;
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             shutdown_system,
             restart_system,
@@ -327,12 +403,22 @@ pub fn run() {
             minimize_to_overlay,
             restore_from_overlay,
             window_minimize,
+            start_dragging,
+            show_main_window,
+            hide_main_window,
             window_toggle_maximize,
             window_close,
             send_notification,
+            exit_app,
             set_autostart,
             get_autostart_enabled,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.emit("poh://close-requested", ());
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { type ActionRequest, useStore } from "./store";
 import { Sidebar } from "./components/Sidebar";
@@ -11,6 +11,7 @@ import { HistoryView } from "./components/Historyview";
 import { SettingsView } from "./components/Settingsview";
 import { DesktopOverlay } from "./components/DesktopOverlay";
 import { ActionConfirmModal } from "./components/ActionConfirmModal";
+import { Btn, Toggle } from "./components/ui";
 import { TauriCommands } from "./tauricommands";
 import { executePowerAction } from "./powerActions";
 import { applyTheme } from "./theme";
@@ -38,6 +39,7 @@ const ViewRenderer: React.FC = () => {
 const App: React.FC = () => {
   const {
     isMinimized,
+    setMinimized,
     tickTimers,
     timers,
     batteryRules,
@@ -57,11 +59,29 @@ const App: React.FC = () => {
   const wasOverlay = useRef(false);
   const autostartInitialized = useRef(false);
   const lastAutostart = useRef<boolean | null>(null);
+  const [closePromptOpen, setClosePromptOpen] = useState(false);
+  const [dontAskClose, setDontAskClose] = useState(false);
 
+  const performClose = (action: "minimize" | "exit") => {
+    if (action === "exit") return void TauriCommands.exitApp();
+    return void TauriCommands.windowClose();
+  };
+
+  const handleCloseRequest = () => {
+    if (!settings.askBeforeClose) {
+      performClose(settings.closeAction);
+      return;
+    }
+    setDontAskClose(false);
+    setClosePromptOpen(true);
+  };
+
+  const hasRunningTimers = timers.some((t) => t.status === "running");
   useEffect(() => {
+    if (!hasRunningTimers) return;
     const id = setInterval(tickTimers, 1000);
     return () => clearInterval(id);
-  }, [tickTimers]);
+  }, [tickTimers, hasRunningTimers]);
 
   useEffect(() => {
     applyTheme({ theme: settings.theme, accentColor: settings.accentColor });
@@ -107,6 +127,32 @@ const App: React.FC = () => {
   }, [settings.autostart, updateSettings]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("__TAURI_INTERNALS__" in window)) return;
+
+    let unlistenRestore: (() => void) | undefined;
+    let unlistenClose: (() => void) | undefined;
+
+    void (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlistenRestore = await listen("poh://restore-app", () => {
+        setMinimized(false);
+      });
+      unlistenClose = await listen("poh://close-requested", () => {
+        handleCloseRequest();
+      });
+    })();
+
+    return () => {
+      if (unlistenRestore) unlistenRestore();
+      if (unlistenClose) unlistenClose();
+    };
+  }, [setMinimized, settings.askBeforeClose, settings.closeAction]);
+
+  const hasEnabledBatteryRules = batteryRules.some((r) => r.enabled);
+  const batteryPollMs = hasEnabledBatteryRules ? 10_000 : 30_000;
+
+  useEffect(() => {
     const poll = async () => {
       try {
         const info = await TauriCommands.getBatteryInfo();
@@ -130,9 +176,9 @@ const App: React.FC = () => {
       }
     };
     poll();
-    const id = setInterval(poll, 10_000);
+    const id = setInterval(poll, batteryPollMs);
     return () => clearInterval(id);
-  }, [setBattery]);
+  }, [setBattery, batteryPollMs]);
 
   useEffect(() => {
     const prev = prevBattery.current;
@@ -283,7 +329,7 @@ const App: React.FC = () => {
         background: "var(--bg-base)",
       }}
     >
-      <TitleBar />
+      <TitleBar onCloseRequest={handleCloseRequest} />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar />
         <main
@@ -301,6 +347,113 @@ const App: React.FC = () => {
           onConfirm={() => void executeRequest(current)}
           onCancel={() => finalizeRequest(current, "canceled")}
         />
+      )}
+      {closePromptOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(5px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 300,
+            animation: "slide-up 0.2s ease",
+          }}
+        >
+          <div
+            style={{
+              width: 420,
+              maxWidth: "calc(100vw - 32px)",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-xl)",
+              padding: "24px 24px 20px",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                marginBottom: 6,
+              }}
+            >
+              Close PoHtimer?
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+              Choose whether to exit the app or minimize it to the tray.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <Btn
+                variant="outline"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  if (dontAskClose) {
+                    updateSettings({
+                      askBeforeClose: false,
+                      closeAction: "minimize",
+                    });
+                  }
+                  setClosePromptOpen(false);
+                  performClose("minimize");
+                }}
+              >
+                Minimize to tray
+              </Btn>
+              <Btn
+                variant="danger"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  if (dontAskClose) {
+                    updateSettings({
+                      askBeforeClose: false,
+                      closeAction: "exit",
+                    });
+                  }
+                  setClosePromptOpen(false);
+                  performClose("exit");
+                }}
+              >
+                Exit app
+              </Btn>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                marginTop: 14,
+              }}
+            >
+              <Toggle
+                checked={dontAskClose}
+                onChange={setDontAskClose}
+                size="sm"
+              />
+              <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                Don’t ask again
+              </span>
+              <button
+                onClick={() => setClosePromptOpen(false)}
+                style={{
+                  marginLeft: "auto",
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

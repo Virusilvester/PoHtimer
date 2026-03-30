@@ -259,6 +259,48 @@ export const SettingsView: React.FC = () => {
             />
           }
         />
+        <SettingRow
+          label="Ask before closing"
+          description="Prompt to exit or minimize to tray"
+          control={
+            <Toggle
+              checked={settings.askBeforeClose}
+              onChange={(v) => updateSettings({ askBeforeClose: v })}
+            />
+          }
+        />
+        <SettingRow
+          label="Default close action"
+          description="Used when 'Ask before closing' is off"
+          control={
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["minimize", "exit"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => updateSettings({ closeAction: v })}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    cursor: "pointer",
+                    background:
+                      settings.closeAction === v
+                        ? "var(--accent-dim)"
+                        : "var(--bg-overlay)",
+                    border: `1px solid ${settings.closeAction === v ? "var(--border-accent)" : "var(--border)"}`,
+                    color:
+                      settings.closeAction === v
+                        ? "var(--accent)"
+                        : "var(--text-muted)",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {v === "minimize" ? "Minimize" : "Exit"}
+                </button>
+              ))}
+            </div>
+          }
+        />
       </Section>
 
       {/* About */}

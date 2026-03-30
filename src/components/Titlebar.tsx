@@ -2,7 +2,9 @@ import React from "react";
 import { useStore } from "../store";
 import { TauriCommands } from "../tauricommands";
 
-export const TitleBar: React.FC = () => {
+export const TitleBar: React.FC<{ onCloseRequest?: () => void }> = ({
+  onCloseRequest,
+}) => {
   const { timers, setMinimized } = useStore();
   const runningCount = timers.filter((t) => t.status === "running").length;
 
@@ -11,9 +13,17 @@ export const TitleBar: React.FC = () => {
     setMinimized(true);
   };
 
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest?.('[data-tauri-drag-region="false"]')) return;
+    void TauriCommands.startDragging();
+  };
+
   return (
     <div
       data-tauri-drag-region
+      onMouseDown={handleDragStart}
       style={{
         height: 40,
         background: "var(--bg-surface)",
@@ -74,6 +84,7 @@ export const TitleBar: React.FC = () => {
         <button
           onClick={handleMinimize}
           title="Minimize to desktop overlay"
+          data-tauri-drag-region="false"
           style={{
             width: 26,
             height: 26,
@@ -108,10 +119,11 @@ export const TitleBar: React.FC = () => {
           ⊟
         </button>
 
-        {/* Minimize */}
+        {/* Hide to tray */}
         <button
           onClick={() => void TauriCommands.windowMinimize()}
-          title="Minimize window"
+          title="Hide to tray"
+          data-tauri-drag-region="false"
           style={{
             width: 12,
             height: 12,
@@ -129,6 +141,7 @@ export const TitleBar: React.FC = () => {
         <button
           onClick={() => void TauriCommands.windowToggleMaximize()}
           title="Maximize/restore window"
+          data-tauri-drag-region="false"
           style={{
             width: 12,
             height: 12,
@@ -144,8 +157,11 @@ export const TitleBar: React.FC = () => {
         />
         {/* Close */}
         <button
-          onClick={() => void TauriCommands.windowClose()}
+          onClick={() =>
+            onCloseRequest ? onCloseRequest() : void TauriCommands.windowClose()
+          }
           title="Close"
+          data-tauri-drag-region="false"
           style={{
             width: 12,
             height: 12,

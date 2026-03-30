@@ -1,10 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
+import { TauriCommands } from '../tauricommands';
 
 const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
   const [now, setNow] = useState(new Date());
   const { timers, setMinimized, setClockMode } = useStore();
   const [showMenu, setShowMenu] = useState(false);
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest?.('[data-tauri-drag-region="false"]')) return;
+    void TauriCommands.startDragging();
+  };
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -16,6 +24,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
 
   return (
     <div
+      data-tauri-drag-region
       style={{
         position: 'relative',
         width: size, height: activeTimer ? size * 1.1 : size * 0.65,
@@ -24,11 +33,12 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         border: '1px solid var(--border-accent)',
         borderRadius: 16 * scale,
         padding: 14 * scale,
-        cursor: 'pointer',
+        cursor: 'grab',
         userSelect: 'none',
         boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 20px var(--accent-shadow)',
         transition: 'height 0.3s ease',
       }}
+      onMouseDown={handleDragStart}
       onDoubleClick={() => setMinimized(false)}
       onContextMenu={e => { e.preventDefault(); setShowMenu(!showMenu); }}
     >
@@ -114,7 +124,9 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
           background: 'rgba(24,28,36,0.95)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 8, padding: '4px', zIndex: 999, minWidth: 140,
           boxShadow: '0 8px 24px rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-        }}>
+        }}
+        data-tauri-drag-region="false"
+        >
           {[
             { label: 'Open PoHtimer', action: () => { setMinimized(false); setShowMenu(false); } },
             { label: 'Switch to Analog', action: () => { setClockMode('analog'); setShowMenu(false); } },
@@ -122,6 +134,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
             <button
               key={label}
               onClick={action}
+              data-tauri-drag-region="false"
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 padding: '7px 10px', borderRadius: 5, fontSize: 11,
@@ -144,6 +157,13 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
   const [now, setNow] = useState(new Date());
   const { timers, setMinimized, setClockMode } = useStore();
   const [showMenu, setShowMenu] = useState(false);
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest?.('[data-tauri-drag-region="false"]')) return;
+    void TauriCommands.startDragging();
+  };
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -181,12 +201,14 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
 
   return (
     <div
+      data-tauri-drag-region
       style={{
         position: 'relative',
         width: size, height: size,
-        cursor: 'pointer',
+        cursor: 'grab',
         userSelect: 'none',
       }}
+      onMouseDown={handleDragStart}
       onDoubleClick={() => setMinimized(false)}
       onContextMenu={e => { e.preventDefault(); setShowMenu(!showMenu); }}
     >
@@ -281,7 +303,9 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
           background: 'rgba(24,28,36,0.95)', border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 8, padding: 4, zIndex: 999, minWidth: 140,
           boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-        }}>
+        }}
+        data-tauri-drag-region="false"
+        >
           {[
             { label: 'Open PoHtimer', action: () => { setMinimized(false); setShowMenu(false); } },
             { label: 'Switch to Digital', action: () => { setClockMode('digital'); setShowMenu(false); } },
@@ -289,6 +313,7 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
             <button
               key={label}
               onClick={action}
+              data-tauri-drag-region="false"
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
                 padding: '7px 10px', borderRadius: 5, fontSize: 11,

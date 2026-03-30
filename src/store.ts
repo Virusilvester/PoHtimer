@@ -68,6 +68,8 @@ export interface Settings {
   confirmBeforeAction: boolean;
   startMinimized: boolean;
   autostart: boolean;
+  askBeforeClose: boolean;
+  closeAction: 'minimize' | 'exit';
 }
 
 interface AppState {
@@ -118,6 +120,8 @@ const defaultSettings: Settings = {
   confirmBeforeAction: true,
   startMinimized: false,
   autostart: false,
+  askBeforeClose: true,
+  closeAction: 'minimize',
 };
 
 const defaultBatteryRules: BatteryRule[] = [
