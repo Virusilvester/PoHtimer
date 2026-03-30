@@ -4,7 +4,7 @@ import { TauriCommands } from "../tauricommands";
 
 const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
   const [now, setNow] = useState(new Date());
-  const { timers, setMinimized, setClockMode, settings } = useStore();
+  const { timers, setMinimized, settings, updateSettings } = useStore();
   const [showMenu, setShowMenu] = useState(false);
 
   const handleDragStart = (e: React.MouseEvent) => {
@@ -22,6 +22,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
   const activeTimer = timers.find((t) => t.status === "running");
   const scale = size / 160;
   const style = settings.digitalWatchStyle;
+  const hasTimerPanel = activeTimer && style !== "minimal";
   const containerStyle =
     style === "minimal"
       ? {
@@ -51,7 +52,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
       style={{
         position: "relative",
         width: size,
-        height: activeTimer ? size * 1.1 : size * 0.65,
+        height: hasTimerPanel ? size * 1.1 : size * 0.65,
         background: containerStyle.background,
         backdropFilter: style === "minimal" ? "none" : "blur(12px)",
         border: containerStyle.border,
@@ -141,7 +142,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
       </div>
 
       {/* Active timer countdown */}
-      {activeTimer && style !== "minimal" && (
+      {hasTimerPanel && (
         <div
           style={{
             marginTop: 8 * scale,
@@ -219,7 +220,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
             {
               label: "Switch to Analog",
               action: () => {
-                setClockMode("analog");
+                updateSettings({ minimizeMode: "analog" });
                 setShowMenu(false);
               },
             },
@@ -256,7 +257,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
 
 const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
   const [now, setNow] = useState(new Date());
-  const { timers, setMinimized, setClockMode, settings } = useStore();
+  const { timers, setMinimized, settings, updateSettings } = useStore();
   const [showMenu, setShowMenu] = useState(false);
 
   const handleDragStart = (e: React.MouseEvent) => {
@@ -482,7 +483,7 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
             {
               label: "Switch to Digital",
               action: () => {
-                setClockMode("digital");
+                updateSettings({ minimizeMode: "digital" });
                 setShowMenu(false);
               },
             },
@@ -518,8 +519,26 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
 };
 
 export const DesktopOverlay: React.FC = () => {
-  const { settings, clockMode } = useStore();
+  const { settings, timers } = useStore();
   const size = settings.clockSize;
+  const hasActiveTimer = timers.some((t) => t.status === "running");
+
+  useEffect(() => {
+    const mode = settings.minimizeMode;
+    const width = size;
+    const height =
+      mode === "digital"
+        ? hasActiveTimer && settings.digitalWatchStyle !== "minimal"
+          ? size * 1.1
+          : size * 0.65
+        : size;
+    void TauriCommands.setOverlayBounds(mode, Math.round(width), Math.round(height));
+  }, [
+    size,
+    hasActiveTimer,
+    settings.minimizeMode,
+    settings.digitalWatchStyle,
+  ]);
 
   return (
     <div
@@ -531,7 +550,7 @@ export const DesktopOverlay: React.FC = () => {
         justifyContent: "center",
       }}
     >
-      {clockMode === "digital" || settings.minimizeMode === "digital" ? (
+      {settings.minimizeMode === "digital" ? (
         <DigitalOverlay size={size} />
       ) : (
         <AnalogOverlay size={size} />

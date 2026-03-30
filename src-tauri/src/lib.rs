@@ -1,4 +1,5 @@
 use tauri::{Emitter, Manager, Runtime};
+use tauri::window::Color;
 use tauri::menu::{IsMenuItem, Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use std::sync::{Mutex, OnceLock};
@@ -194,6 +195,42 @@ fn main_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
         .ok_or_else(|| "main window not found".to_string())
 }
 
+#[cfg(target_os = "windows")]
+fn apply_overlay_region(win: &tauri::WebviewWindow, mode: &str, width: u32, height: u32) {
+    use windows_sys::Win32::Foundation::HWND as SYS_HWND;
+    use windows_sys::Win32::Graphics::Gdi::{
+        CreateEllipticRgn, CreateRoundRectRgn, DeleteObject, SetWindowRgn,
+    };
+
+    if let Ok(hwnd) = win.hwnd() {
+        let hwnd = hwnd.0 as isize;
+        unsafe {
+            if mode == "analog" {
+                let hrgn = CreateEllipticRgn(0, 0, width as i32, height as i32);
+                if !hrgn.is_null() {
+                    let res = SetWindowRgn(hwnd as SYS_HWND, hrgn, 1);
+                    if res == 0 {
+                        let _ = DeleteObject(hrgn as _);
+                    }
+                }
+            } else if mode == "digital" {
+                let mut radius = ((width as f32) * 0.1).round() as i32;
+                radius = radius.clamp(8, 80);
+                let hrgn =
+                    CreateRoundRectRgn(0, 0, width as i32, height as i32, radius, radius);
+                if !hrgn.is_null() {
+                    let res = SetWindowRgn(hwnd as SYS_HWND, hrgn, 1);
+                    if res == 0 {
+                        let _ = DeleteObject(hrgn as _);
+                    }
+                }
+            } else {
+                let _ = SetWindowRgn(hwnd as SYS_HWND, std::ptr::null_mut(), 1);
+            }
+        }
+    }
+}
+
 #[tauri::command]
 fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result<(), String> {
     let win = main_window(&app)?;
@@ -202,11 +239,13 @@ fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result
 
     win.set_decorations(false).map_err(|e| e.to_string())?;
     win.set_always_on_top(true).map_err(|e| e.to_string())?;
+    let _ = win.set_shadow(false);
+    let _ = win.set_background_color(Some(Color(0, 0, 0, 0)));
     let _ = win.set_resizable(false);
     let _ = win.set_skip_taskbar(true);
 
     let size = size.clamp(100, 420);
-    let pad = 44;
+    let pad = 0;
     let (width, height) = match mode.as_str() {
         "digital" => (size + pad, (size * 11) / 10 + pad),
         "analog" => (size + pad, size + pad),
@@ -214,6 +253,42 @@ fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result
     };
     win.set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
         .map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        apply_overlay_region(&win, &mode, width, height);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn set_overlay_bounds(
+    app: tauri::AppHandle,
+    mode: String,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    let win = main_window(&app)?;
+    let _ = win.show();
+    let _ = win.unminimize();
+
+    win.set_decorations(false).map_err(|e| e.to_string())?;
+    win.set_always_on_top(true).map_err(|e| e.to_string())?;
+    let _ = win.set_shadow(false);
+    let _ = win.set_background_color(Some(Color(0, 0, 0, 0)));
+    let _ = win.set_resizable(false);
+    let _ = win.set_skip_taskbar(true);
+
+    let width = width.clamp(80, 520);
+    let height = height.clamp(80, 640);
+    win.set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
+        .map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        apply_overlay_region(&win, &mode, width, height);
+    }
 
     Ok(())
 }
@@ -223,8 +298,21 @@ fn restore_from_overlay(app: tauri::AppHandle) -> Result<(), String> {
     let win = main_window(&app)?;
     win.set_always_on_top(false).map_err(|e| e.to_string())?;
     win.set_decorations(false).map_err(|e| e.to_string())?;
+    let _ = win.set_shadow(true);
+    let _ = win.set_background_color(Some(Color(10, 12, 16, 255)));
     let _ = win.set_resizable(true);
     let _ = win.set_skip_taskbar(false);
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::Graphics::Gdi::SetWindowRgn;
+        use windows_sys::Win32::Foundation::HWND as SYS_HWND;
+        if let Ok(hwnd) = win.hwnd() {
+            let hwnd = hwnd.0 as isize;
+            unsafe {
+                let _ = SetWindowRgn(hwnd as SYS_HWND, std::ptr::null_mut(), 1);
+            }
+        }
+    }
     win.set_size(tauri::Size::Physical(tauri::PhysicalSize {
         width: 980,
         height: 680,
@@ -451,6 +539,7 @@ pub fn run() {
             get_battery_info,
             get_system_info,
             minimize_to_overlay,
+            set_overlay_bounds,
             restore_from_overlay,
             window_minimize,
             start_dragging,

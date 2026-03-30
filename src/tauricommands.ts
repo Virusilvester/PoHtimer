@@ -75,6 +75,10 @@ export const TauriCommands = {
     return invokeCommand("minimize_to_overlay", { mode, size });
   },
 
+  async setOverlayBounds(mode: "digital" | "analog", width: number, height: number) {
+    return invokeCommand("set_overlay_bounds", { mode, width, height });
+  },
+
   async restoreFromOverlay() {
     return invokeCommand("restore_from_overlay");
   },

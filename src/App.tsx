@@ -89,16 +89,17 @@ const App: React.FC = () => {
     applyTheme({ theme: settings.theme, accentColor: settings.accentColor });
   }, [settings.accentColor, settings.theme]);
 
+  const overlayMode = settings.minimizeMode;
   useEffect(() => {
     if (isMinimized) {
       wasOverlay.current = true;
-      void TauriCommands.minimizeToOverlay(settings.minimizeMode, settings.clockSize);
+      void TauriCommands.minimizeToOverlay(overlayMode, settings.clockSize);
       return;
     }
     if (!wasOverlay.current) return;
     wasOverlay.current = false;
     void TauriCommands.restoreFromOverlay();
-  }, [isMinimized, settings.clockSize, settings.minimizeMode]);
+  }, [isMinimized, settings.clockSize, overlayMode, settings.minimizeMode]);
 
   useEffect(() => {
     const unsub = useStore.persist.onFinishHydration((s) => {
