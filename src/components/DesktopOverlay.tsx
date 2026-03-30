@@ -532,13 +532,12 @@ export const DesktopOverlay: React.FC = () => {
           ? size * 1.1
           : size * 0.65
         : size;
-    void TauriCommands.setOverlayBounds(mode, Math.round(width), Math.round(height));
-  }, [
-    size,
-    hasActiveTimer,
-    settings.minimizeMode,
-    settings.digitalWatchStyle,
-  ]);
+    void TauriCommands.setOverlayBounds(
+      mode,
+      Math.round(width),
+      Math.round(height),
+    );
+  }, [size, hasActiveTimer, settings.minimizeMode, settings.digitalWatchStyle]);
 
   return (
     <div
