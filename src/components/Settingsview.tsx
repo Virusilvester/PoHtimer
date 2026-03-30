@@ -400,7 +400,7 @@ export const SettingsView: React.FC = () => {
         <div
           style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}
         >
-          Version 1.0.0 · Built with Tauri 2 + React
+          Version 0.1.1 · Built with Tauri 2 + React
         </div>
         <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
           Power Scheduling Utility for Windows
