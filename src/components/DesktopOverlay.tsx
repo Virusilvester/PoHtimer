@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useStore } from '../store';
-import { TauriCommands } from '../tauricommands';
+import React, { useEffect, useState } from "react";
+import { useStore } from "../store";
+import { TauriCommands } from "../tauricommands";
 
 const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
   const [now, setNow] = useState(new Date());
@@ -19,125 +19,171 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
     return () => clearInterval(id);
   }, []);
 
-  const activeTimer = timers.find(t => t.status === 'running');
+  const activeTimer = timers.find((t) => t.status === "running");
   const scale = size / 160;
   const style = settings.digitalWatchStyle;
-  const containerStyle = {
-    background: 'transparent',
-    border: 'none',
-    boxShadow: 'none',
-    padding: 6 * scale,
-  };
-  const timeColor =
-    style === 'glass'
-      ? 'rgba(240,242,245,0.95)'
-      : style === 'panel'
-        ? 'rgba(240,242,245,0.9)'
-        : 'var(--accent)';
-  const timeGlow =
-    style === 'panel'
-      ? '0 0 10px rgba(240,242,245,0.15)'
-      : '0 0 20px var(--accent-glow-strong)';
+  const containerStyle =
+    style === "minimal"
+      ? {
+          background: "transparent",
+          border: "none",
+          boxShadow: "none",
+          padding: 6 * scale,
+        }
+      : style === "panel"
+        ? {
+            background: "rgba(14,18,26,0.9)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.65)",
+            padding: 12 * scale,
+          }
+        : {
+            background: "rgba(10,12,16,0.85)",
+            border: "1px solid var(--border-accent)",
+            boxShadow:
+              "0 8px 32px rgba(0,0,0,0.6), 0 0 20px var(--accent-shadow)",
+            padding: 14 * scale,
+          };
 
   return (
     <div
       data-tauri-drag-region
       style={{
-        position: 'relative',
+        position: "relative",
         width: size,
         height: activeTimer ? size * 1.1 : size * 0.65,
         background: containerStyle.background,
-        backdropFilter: 'none',
+        backdropFilter: style === "minimal" ? "none" : "blur(12px)",
         border: containerStyle.border,
-        borderRadius: style === 'minimal' ? 0 : 12 * scale,
+        borderRadius: 16 * scale,
         padding: containerStyle.padding,
-        cursor: 'grab',
-        userSelect: 'none',
+        cursor: "grab",
+        userSelect: "none",
         boxShadow: containerStyle.boxShadow,
-        transition: 'height 0.3s ease',
+        transition: "height 0.3s ease",
       }}
       onMouseDown={handleDragStart}
       onDoubleClick={() => setMinimized(false)}
-      onContextMenu={e => { e.preventDefault(); setShowMenu(!showMenu); }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setShowMenu(!showMenu);
+      }}
     >
-      {style !== 'minimal' && (
+      {style !== "minimal" && (
         <div
           data-tauri-drag-region
           style={{
-            height: 10 * scale,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 4 * scale,
-            cursor: 'grab',
-            opacity: 0.15,
+            height: 12 * scale,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 6 * scale,
+            cursor: "grab",
           }}
         >
           <div
             style={{
-              width: 26 * scale,
-              height: 2 * scale,
+              width: 38 * scale,
+              height: 3 * scale,
               borderRadius: 999,
-              background: 'rgba(240,242,245,0.4)',
+              background: "rgba(240,242,245,0.14)",
+              border: "1px solid rgba(255,255,255,0.08)",
             }}
           />
         </div>
       )}
 
       {/* Time */}
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 32 * scale,
-        fontWeight: 700,
-        color: timeColor,
-        letterSpacing: '-0.02em',
-        lineHeight: 1,
-        textShadow: timeGlow,
-        textAlign: 'center',
-      }}>
-        {now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
-        <span style={{ fontSize: 18 * scale, color: 'var(--accent-strong)', marginLeft: 2 }}>
-          {String(now.getSeconds()).padStart(2, '0')}
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 32 * scale,
+          fontWeight: 700,
+          color: "var(--accent)",
+          letterSpacing: "-0.02em",
+          lineHeight: 1,
+          textShadow: "0 0 20px var(--accent-glow-strong)",
+          textAlign: "center",
+        }}
+      >
+        {now.toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+        <span
+          style={{
+            fontSize: 18 * scale,
+            color: "var(--accent-strong)",
+            marginLeft: 2,
+          }}
+        >
+          {String(now.getSeconds()).padStart(2, "0")}
         </span>
       </div>
 
       <div
         style={{
           fontSize: 9 * scale,
-          color: 'rgba(240,242,245,0.4)',
-          textAlign: 'center',
+          color: "rgba(240,242,245,0.4)",
+          textAlign: "center",
           marginTop: 3 * scale,
-          letterSpacing: '0.05em',
+          letterSpacing: "0.05em",
         }}
       >
-        {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
+        {now
+          .toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          })
+          .toUpperCase()}
       </div>
 
       {/* Active timer countdown */}
-      {activeTimer && style !== 'minimal' && (
-        <div style={{
-          marginTop: 8 * scale,
-          padding: `${6 * scale}px ${8 * scale}px`,
-          background: 'rgba(0,0,0,0.2)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 8 * scale,
-          textAlign: 'center',
-        }}>
-          <div style={{ fontSize: 8 * scale, color: 'rgba(240,242,245,0.4)', letterSpacing: '0.05em' }}>
+      {activeTimer && style !== "minimal" && (
+        <div
+          style={{
+            marginTop: 8 * scale,
+            padding: `${6 * scale}px ${8 * scale}px`,
+            background: "var(--accent-dim)",
+            border: "1px solid var(--border-accent)",
+            borderRadius: 8 * scale,
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 8 * scale,
+              color: "rgba(240,242,245,0.4)",
+              letterSpacing: "0.05em",
+            }}
+          >
             TIMER
           </div>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 18 * scale,
-            fontWeight: 700,
-            color: activeTimer.remaining <= 60 ? '#ff8c00' : 'var(--accent)',
-            letterSpacing: '-0.01em',
-          }}>
-            {String(Math.floor(activeTimer.remaining / 3600)).padStart(2, '0')}:
-            {String(Math.floor((activeTimer.remaining % 3600) / 60)).padStart(2, '0')}:
-            {String(activeTimer.remaining % 60).padStart(2, '0')}
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 18 * scale,
+              fontWeight: 700,
+              color: activeTimer.remaining <= 60 ? "#ff8c00" : "var(--accent)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {String(Math.floor(activeTimer.remaining / 3600)).padStart(2, "0")}:
+            {String(Math.floor((activeTimer.remaining % 3600) / 60)).padStart(
+              2,
+              "0",
+            )}
+            :{String(activeTimer.remaining % 60).padStart(2, "0")}
           </div>
-          <div style={{ fontSize: 8 * scale, color: 'rgba(240,242,245,0.35)', marginTop: 1 }}>
+          <div
+            style={{
+              fontSize: 8 * scale,
+              color: "rgba(240,242,245,0.35)",
+              marginTop: 1,
+            }}
+          >
             {activeTimer.label}
           </div>
         </div>
@@ -145,30 +191,59 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
 
       {/* Context menu */}
       {showMenu && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, marginTop: 4,
-          background: 'rgba(24,28,36,0.95)', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 8, padding: '4px', zIndex: 999, minWidth: 140,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-        }}
-        data-tauri-drag-region="false"
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            marginTop: 4,
+            background: "rgba(24,28,36,0.95)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 8,
+            padding: "4px",
+            zIndex: 999,
+            minWidth: 140,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+            backdropFilter: "blur(8px)",
+          }}
+          data-tauri-drag-region="false"
         >
           {[
-            { label: 'Open PoHtimer', action: () => { setMinimized(false); setShowMenu(false); } },
-            { label: 'Switch to Analog', action: () => { setClockMode('analog'); setShowMenu(false); } },
+            {
+              label: "Open PoHtimer",
+              action: () => {
+                setMinimized(false);
+                setShowMenu(false);
+              },
+            },
+            {
+              label: "Switch to Analog",
+              action: () => {
+                setClockMode("analog");
+                setShowMenu(false);
+              },
+            },
           ].map(({ label, action }) => (
             <button
               key={label}
               onClick={action}
               data-tauri-drag-region="false"
               style={{
-                display: 'block', width: '100%', textAlign: 'left',
-                padding: '7px 10px', borderRadius: 5, fontSize: 11,
-                background: 'none', border: 'none', color: 'rgba(240,242,245,0.7)',
-                cursor: 'pointer',
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "7px 10px",
+                borderRadius: 5,
+                fontSize: 11,
+                background: "none",
+                border: "none",
+                color: "rgba(240,242,245,0.7)",
+                cursor: "pointer",
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-dim)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--accent-dim)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
             >
               {label}
             </button>
@@ -196,7 +271,7 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
     return () => clearInterval(id);
   }, []);
 
-  const activeTimer = timers.find(t => t.status === 'running');
+  const activeTimer = timers.find((t) => t.status === "running");
   const cx = size / 2;
   const r = size / 2 - 4;
 
@@ -218,7 +293,9 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
   const sPos = toXY(sAngle, r * 0.85);
 
   // Timer progress arc
-  const timerPct = activeTimer ? 1 - activeTimer.remaining / activeTimer.duration : 0;
+  const timerPct = activeTimer
+    ? 1 - activeTimer.remaining / activeTimer.duration
+    : 0;
   const timerAngle = timerPct * 360;
   const timerR = r - 6;
   const timerStart = toXY(-90, timerR);
@@ -230,38 +307,44 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
     <div
       data-tauri-drag-region
       style={{
-        position: 'relative',
-        width: size, height: size,
-        cursor: 'grab',
-        userSelect: 'none',
+        position: "relative",
+        width: size,
+        height: size,
+        cursor: "grab",
+        userSelect: "none",
       }}
       onMouseDown={handleDragStart}
       onDoubleClick={() => setMinimized(false)}
-      onContextMenu={e => { e.preventDefault(); setShowMenu(!showMenu); }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setShowMenu(!showMenu);
+      }}
     >
       <div
         data-tauri-drag-region
         style={{
-          position: 'absolute',
+          position: "absolute",
           top: 8,
-          left: '50%',
-          transform: 'translateX(-50%)',
+          left: "50%",
+          transform: "translateX(-50%)",
           width: 56,
           height: 14,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'grab',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "grab",
           zIndex: 2,
         }}
       >
-        <div style={{
-          width: 36,
-          height: 3,
-          borderRadius: 999,
-          background: 'rgba(240,242,245,0.14)',
-          border: '1px solid rgba(255,255,255,0.08)',
-        }} />
+        <div
+          style={{
+            width: 36,
+            height: 3,
+            borderRadius: 999,
+            background: "rgba(240,242,245,0.14)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        />
       </div>
 
       <svg width={size} height={size}>
@@ -270,16 +353,20 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
           cx={cx}
           cy={cx}
           r={r}
-          fill={style === 'minimal' ? 'rgba(10,12,16,0.35)' : 'rgba(10,12,16,0.85)'}
+          fill={
+            style === "minimal" ? "rgba(10,12,16,0.35)" : "rgba(10,12,16,0.85)"
+          }
         />
-        {style !== 'minimal' && (
+        {style !== "minimal" && (
           <circle
             cx={cx}
             cy={cx}
             r={r}
             fill="none"
-            stroke={style === 'neon' ? 'var(--accent-strong)' : 'var(--border-accent)'}
-            strokeWidth={style === 'neon' ? 2.2 : 1.5}
+            stroke={
+              style === "neon" ? "var(--accent-strong)" : "var(--border-accent)"
+            }
+            strokeWidth={style === "neon" ? 2.2 : 1.5}
           />
         )}
 
@@ -287,23 +374,26 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
         <defs>
           <filter id="glow">
             <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
           </filter>
         </defs>
 
         {/* Timer arc */}
-        {activeTimer && timerAngle > 0 && style !== 'minimal' && (
+        {activeTimer && timerAngle > 0 && style !== "minimal" && (
           <path
             d={`M ${timerStart.x} ${timerStart.y} A ${timerR} ${timerR} 0 ${largeArc} 1 ${timerEnd.x} ${timerEnd.y}`}
             fill="none"
-            stroke={activeTimer.remaining <= 60 ? '#ff8c00' : 'var(--accent)'}
+            stroke={activeTimer.remaining <= 60 ? "#ff8c00" : "var(--accent)"}
             strokeWidth={3}
             strokeLinecap="round"
           />
         )}
 
         {/* Hour markers */}
-        {style !== 'minimal' &&
+        {style !== "minimal" &&
           Array.from({ length: 12 }, (_, i) => {
             const a = (i / 12) * 360 - 90;
             const inner = toXY(a, r - 8);
@@ -317,10 +407,10 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
                 y2={outer.y}
                 stroke={
                   i === 0 || i % 3 === 0
-                    ? style === 'neon'
-                      ? 'var(--accent)'
-                      : 'var(--accent-strong)'
-                    : 'rgba(255,255,255,0.15)'
+                    ? style === "neon"
+                      ? "var(--accent)"
+                      : "var(--accent-strong)"
+                    : "rgba(255,255,255,0.15)"
                 }
                 strokeWidth={i % 3 === 0 ? 1.5 : 0.5}
               />
@@ -329,21 +419,34 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
 
         {/* Hour hand */}
         <line
-          x1={cx} y1={cx} x2={hPos.x} y2={hPos.y}
-          stroke="#f0f2f5" strokeWidth={style === 'neon' ? 3.5 : 3} strokeLinecap="round"
+          x1={cx}
+          y1={cx}
+          x2={hPos.x}
+          y2={hPos.y}
+          stroke="#f0f2f5"
+          strokeWidth={style === "neon" ? 3.5 : 3}
+          strokeLinecap="round"
           filter="url(#glow)"
         />
         {/* Minute hand */}
         <line
-          x1={cx} y1={cx} x2={mPos.x} y2={mPos.y}
-          stroke="var(--accent)" strokeWidth={style === 'neon' ? 2.6 : 2} strokeLinecap="round"
+          x1={cx}
+          y1={cx}
+          x2={mPos.x}
+          y2={mPos.y}
+          stroke="var(--accent)"
+          strokeWidth={style === "neon" ? 2.6 : 2}
+          strokeLinecap="round"
           filter="url(#glow)"
         />
         {/* Second hand */}
         <line
-          x1={cx} y1={cx} x2={sPos.x} y2={sPos.y}
-          stroke={style === 'neon' ? '#ff6b6b' : '#ff4d4d'}
-          strokeWidth={style === 'neon' ? 1.5 : 1}
+          x1={cx}
+          y1={cx}
+          x2={sPos.x}
+          y2={sPos.y}
+          stroke={style === "neon" ? "#ff6b6b" : "#ff4d4d"}
+          strokeWidth={style === "neon" ? 1.5 : 1}
           strokeLinecap="round"
         />
         {/* Center dot */}
@@ -352,30 +455,58 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
       </svg>
 
       {showMenu && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, marginTop: 4,
-          background: 'rgba(24,28,36,0.95)', border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 8, padding: 4, zIndex: 999, minWidth: 140,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-        }}
-        data-tauri-drag-region="false"
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            marginTop: 4,
+            background: "rgba(24,28,36,0.95)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 8,
+            padding: 4,
+            zIndex: 999,
+            minWidth: 140,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.6)",
+          }}
+          data-tauri-drag-region="false"
         >
           {[
-            { label: 'Open PoHtimer', action: () => { setMinimized(false); setShowMenu(false); } },
-            { label: 'Switch to Digital', action: () => { setClockMode('digital'); setShowMenu(false); } },
+            {
+              label: "Open PoHtimer",
+              action: () => {
+                setMinimized(false);
+                setShowMenu(false);
+              },
+            },
+            {
+              label: "Switch to Digital",
+              action: () => {
+                setClockMode("digital");
+                setShowMenu(false);
+              },
+            },
           ].map(({ label, action }) => (
             <button
               key={label}
               onClick={action}
               data-tauri-drag-region="false"
               style={{
-                display: 'block', width: '100%', textAlign: 'left',
-                padding: '7px 10px', borderRadius: 5, fontSize: 11,
-                background: 'none', border: 'none', color: 'rgba(240,242,245,0.7)',
-                cursor: 'pointer',
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "7px 10px",
+                borderRadius: 5,
+                fontSize: 11,
+                background: "none",
+                border: "none",
+                color: "rgba(240,242,245,0.7)",
+                cursor: "pointer",
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-dim)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "var(--accent-dim)")
+              }
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
             >
               {label}
             </button>
@@ -393,17 +524,18 @@ export const DesktopOverlay: React.FC = () => {
   return (
     <div
       style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      {clockMode === 'digital' || settings.minimizeMode === 'digital'
-        ? <DigitalOverlay size={size} />
-        : <AnalogOverlay size={size} />
-      }
+      {clockMode === "digital" || settings.minimizeMode === "digital" ? (
+        <DigitalOverlay size={size} />
+      ) : (
+        <AnalogOverlay size={size} />
+      )}
     </div>
   );
 };
