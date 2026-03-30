@@ -16,29 +16,30 @@ export const Btn: React.FC<BtnProps> = ({
   className = "",
   ...p
 }) => {
-  const base = `inline-flex items-center gap-2 font-medium rounded-md transition-all duration-150 select-none`;
-  const variants: Record<string, string> = {
-    primary:
-      "bg-[var(--accent)] text-[#0a0c10] hover:brightness-110 active:scale-95",
-    ghost:
-      "bg-transparent hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] active:scale-95",
-    danger:
-      "bg-[var(--danger-dim)] text-[var(--danger)] hover:bg-[var(--danger)] hover:text-white active:scale-95",
-    outline:
-      "border border-[var(--border)] bg-transparent hover:border-[var(--border-accent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] active:scale-95",
-  };
-  const sizes: Record<string, string> = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base",
-  };
+  const variantClass =
+    {
+      primary: "btn-primary",
+      ghost: "btn-ghost",
+      danger: "btn-danger",
+      outline: "btn-outline",
+    }[variant] ?? "btn-ghost";
+
+  const sizeClass =
+    {
+      sm: "btn-sm",
+      md: "btn-md",
+      lg: "btn-lg",
+    }[size] ?? "btn-md";
+
+  const classes = ["btn", variantClass, sizeClass, className]
+    .filter(Boolean)
+    .join(" ");
   return (
     <button
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
-      style={{ borderRadius: "var(--radius-md)" }}
+      className={classes}
       {...p}
     >
-      {icon && <span>{icon}</span>}
+      {icon && <span className="btn-icon">{icon}</span>}
       {children}
     </button>
   );

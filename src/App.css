@@ -83,6 +83,52 @@ html, body, #root {
 button { font-family: var(--font-body); cursor: pointer; border: none; outline: none; }
 input, select, textarea { font-family: var(--font-body); outline: none; }
 
+/* Buttons (matches the "original" preview look) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 500;
+  transition: all 0.15s;
+  user-select: none;
+  white-space: nowrap;
+}
+.btn-icon { display: inline-flex; align-items: center; }
+.btn:active { transform: scale(0.98); }
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-md { padding: 8px 16px; font-size: 13px; }
+.btn-lg { padding: 12px 20px; font-size: 15px; }
+
+.btn-primary { background: var(--accent); color: #0a0c10; }
+.btn-primary:hover { filter: brightness(1.1); }
+
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.btn-outline:hover {
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+}
+
+.btn-danger { background: var(--danger-dim); color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: #fff; }
+
 /* Focus ring */
 :focus-visible {
   outline: 2px solid var(--accent);

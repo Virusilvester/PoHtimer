@@ -1,4 +1,5 @@
 use tauri::Manager;
+use std::sync::{Mutex, OnceLock};
 
 fn spawn_cmd(program: &str, args: &[&str]) -> Result<(), String> {
     std::process::Command::new(program)
@@ -146,6 +147,44 @@ fn get_battery_info() -> BatteryInfo {
     query_battery_info()
 }
 
+// ── System info ───────────────────────────────────────────────────────────────
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SystemInfo {
+    os: String,
+    uptime_seconds: u64,
+    cpu_usage: f32,
+    memory_used: u64,
+    memory_total: u64,
+}
+
+fn system() -> &'static Mutex<sysinfo::System> {
+    static SYS: OnceLock<Mutex<sysinfo::System>> = OnceLock::new();
+    SYS.get_or_init(|| Mutex::new(sysinfo::System::new()))
+}
+
+#[tauri::command]
+fn get_system_info() -> Result<SystemInfo, String> {
+    let mut sys = system()
+        .lock()
+        .map_err(|_| "system info lock poisoned".to_string())?;
+
+    sys.refresh_memory();
+    sys.refresh_cpu_usage();
+
+    let os = sysinfo::System::long_os_version()
+        .or_else(sysinfo::System::name)
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    Ok(SystemInfo {
+        os,
+        uptime_seconds: sysinfo::System::uptime(),
+        cpu_usage: sys.global_cpu_usage(),
+        memory_used: sys.used_memory().saturating_mul(1024),
+        memory_total: sys.total_memory().saturating_mul(1024),
+    })
+}
+
 // ── Window management ────────────────────────────────────────
 #[tauri::command]
 fn main_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
@@ -284,6 +323,7 @@ pub fn run() {
             lock_screen,
             logoff_user,
             get_battery_info,
+            get_system_info,
             minimize_to_overlay,
             restore_from_overlay,
             window_minimize,

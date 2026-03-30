@@ -100,6 +100,31 @@ export const TauriCommands = {
     return false;
   },
 
+  async getSystemInfo(): Promise<{
+    os: string;
+    uptimeSeconds: number;
+    cpuUsage: number;
+    memoryUsed: number;
+    memoryTotal: number;
+  }> {
+    if (isTauri()) return invokeCommand("get_system_info");
+
+    const os = navigator.userAgent;
+    const uptimeSeconds = Math.floor(performance.now() / 1000);
+    const memoryTotal =
+      (performance as any).memory?.jsHeapSizeLimit ?? 0;
+    const memoryUsed =
+      (performance as any).memory?.usedJSHeapSize ?? 0;
+
+    return {
+      os,
+      uptimeSeconds,
+      cpuUsage: 0,
+      memoryUsed,
+      memoryTotal,
+    };
+  },
+
   async sendNotification(title: string, body: string) {
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(title, { body });

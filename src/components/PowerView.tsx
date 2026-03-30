@@ -1,8 +1,39 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { type PowerAction } from "../store";
 import { ACTION_META } from "../utils";
 import { Card, Btn, SectionHeader } from "./ui";
 import { TauriCommands } from "../tauricommands";
+
+type SystemInfo = {
+  os: string;
+  uptimeSeconds: number;
+  cpuUsage: number;
+  memoryUsed: number;
+  memoryTotal: number;
+};
+
+function formatUptime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "N/A";
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0 || d > 0) parts.push(`${h}h`);
+  parts.push(`${m}m`);
+  return parts.join(" ");
+}
+
+function formatMemory(usedBytes: number, totalBytes: number) {
+  if (!Number.isFinite(usedBytes) || !Number.isFinite(totalBytes)) return "N/A";
+  if (totalBytes <= 0) return "N/A";
+  const toGb = (b: number) => b / 1024 / 1024 / 1024;
+  const usedGb = toGb(usedBytes);
+  const totalGb = toGb(totalBytes);
+  const usedTxt = usedGb.toFixed(1);
+  const totalTxt = totalGb >= 10 ? totalGb.toFixed(0) : totalGb.toFixed(1);
+  return `${usedTxt} / ${totalTxt} GB`;
+}
 
 const PowerCard: React.FC<{
   action: PowerAction;
@@ -204,6 +235,38 @@ const CountdownConfirm: React.FC<{
 export const PowerView: React.FC = () => {
   const [confirming, setConfirming] = useState<PowerAction | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const [sysinfo, setSysinfo] = useState<SystemInfo | null>(null);
+  const [sysinfoError, setSysinfoError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+
+    const refresh = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const info = await TauriCommands.getSystemInfo();
+        if (!cancelled) {
+          setSysinfo(info);
+          setSysinfoError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setSysinfoError(String(e));
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    refresh();
+    const id = window.setInterval(refresh, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   const executeAction = async (action: PowerAction) => {
     setConfirming(null);
@@ -327,6 +390,21 @@ export const PowerView: React.FC = () => {
         >
           SYSTEM INFORMATION
         </div>
+        {sysinfoError && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--danger)",
+              marginBottom: 10,
+              padding: "8px 10px",
+              background: "var(--danger-dim)",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--danger)30",
+            }}
+          >
+            âš  {sysinfoError}
+          </div>
+        )}
         <div
           style={{
             display: "grid",
@@ -335,10 +413,21 @@ export const PowerView: React.FC = () => {
           }}
         >
           {[
-            { label: "OS", value: "Windows 11" },
-            { label: "Uptime", value: "4h 32m" },
-            { label: "CPU Usage", value: "12%" },
-            { label: "Memory", value: "8.2 / 16 GB" },
+            { label: "OS", value: sysinfo?.os ?? "Loading..." },
+            {
+              label: "Uptime",
+              value: sysinfo ? formatUptime(sysinfo.uptimeSeconds) : "Loading...",
+            },
+            {
+              label: "CPU Usage",
+              value: sysinfo ? `${Math.round(sysinfo.cpuUsage)}%` : "Loading...",
+            },
+            {
+              label: "Memory",
+              value: sysinfo
+                ? formatMemory(sysinfo.memoryUsed, sysinfo.memoryTotal)
+                : "Loading...",
+            },
           ].map(({ label, value }) => (
             <div
               key={label}
