@@ -191,6 +191,70 @@ export const SettingsView: React.FC = () => {
             format={(v) => `${v}px`}
           />
         </div>
+        <SettingRow
+          label="Digital watch style"
+          description="Choose a digital overlay theme"
+          control={
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {(["minimal", "glass", "panel"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => updateSettings({ digitalWatchStyle: v })}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    cursor: "pointer",
+                    background:
+                      settings.digitalWatchStyle === v
+                        ? "var(--accent-dim)"
+                        : "var(--bg-overlay)",
+                    border: `1px solid ${settings.digitalWatchStyle === v ? "var(--border-accent)" : "var(--border)"}`,
+                    color:
+                      settings.digitalWatchStyle === v
+                        ? "var(--accent)"
+                        : "var(--text-muted)",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          }
+        />
+        <SettingRow
+          label="Analog watch style"
+          description="Choose an analog overlay theme"
+          control={
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {(["classic", "neon", "minimal"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => updateSettings({ analogWatchStyle: v })}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    cursor: "pointer",
+                    background:
+                      settings.analogWatchStyle === v
+                        ? "var(--accent-dim)"
+                        : "var(--bg-overlay)",
+                    border: `1px solid ${settings.analogWatchStyle === v ? "var(--border-accent)" : "var(--border)"}`,
+                    color:
+                      settings.analogWatchStyle === v
+                        ? "var(--accent)"
+                        : "var(--text-muted)",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          }
+        />
       </Section>
 
       {/* Notifications */}

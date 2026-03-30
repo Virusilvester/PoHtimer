@@ -4,7 +4,7 @@ import { TauriCommands } from '../tauricommands';
 
 const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
   const [now, setNow] = useState(new Date());
-  const { timers, setMinimized, setClockMode } = useStore();
+  const { timers, setMinimized, setClockMode, settings } = useStore();
   const [showMenu, setShowMenu] = useState(false);
 
   const handleDragStart = (e: React.MouseEvent) => {
@@ -21,46 +21,74 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
 
   const activeTimer = timers.find(t => t.status === 'running');
   const scale = size / 160;
+  const style = settings.digitalWatchStyle;
+  const containerStyle =
+    style === 'minimal'
+      ? {
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          padding: 6 * scale,
+        }
+      : style === 'panel'
+        ? {
+            background: 'rgba(14,18,26,0.9)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.65)',
+            padding: 12 * scale,
+          }
+        : {
+            background: 'rgba(10,12,16,0.85)',
+            border: '1px solid var(--border-accent)',
+            boxShadow:
+              '0 8px 32px rgba(0,0,0,0.6), 0 0 20px var(--accent-shadow)',
+            padding: 14 * scale,
+          };
 
   return (
     <div
       data-tauri-drag-region
       style={{
         position: 'relative',
-        width: size, height: activeTimer ? size * 1.1 : size * 0.65,
-        background: 'rgba(10,12,16,0.85)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid var(--border-accent)',
+        width: size,
+        height: activeTimer ? size * 1.1 : size * 0.65,
+        background: containerStyle.background,
+        backdropFilter: style === 'minimal' ? 'none' : 'blur(12px)',
+        border: containerStyle.border,
         borderRadius: 16 * scale,
-        padding: 14 * scale,
+        padding: containerStyle.padding,
         cursor: 'grab',
         userSelect: 'none',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 20px var(--accent-shadow)',
+        boxShadow: containerStyle.boxShadow,
         transition: 'height 0.3s ease',
       }}
       onMouseDown={handleDragStart}
       onDoubleClick={() => setMinimized(false)}
       onContextMenu={e => { e.preventDefault(); setShowMenu(!showMenu); }}
     >
-      <div
-        data-tauri-drag-region
-        style={{
-          height: 12 * scale,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 6 * scale,
-          cursor: 'grab',
-        }}
-      >
-        <div style={{
-          width: 38 * scale,
-          height: 3 * scale,
-          borderRadius: 999,
-          background: 'rgba(240,242,245,0.14)',
-          border: '1px solid rgba(255,255,255,0.08)',
-        }} />
-      </div>
+      {style !== 'minimal' && (
+        <div
+          data-tauri-drag-region
+          style={{
+            height: 12 * scale,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 6 * scale,
+            cursor: 'grab',
+          }}
+        >
+          <div
+            style={{
+              width: 38 * scale,
+              height: 3 * scale,
+              borderRadius: 999,
+              background: 'rgba(240,242,245,0.14)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          />
+        </div>
+      )}
 
       {/* Time */}
       <div style={{
@@ -79,16 +107,20 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         </span>
       </div>
 
-      <div style={{
-        fontSize: 9 * scale, color: 'rgba(240,242,245,0.4)',
-        textAlign: 'center', marginTop: 3 * scale,
-        letterSpacing: '0.05em',
-      }}>
+      <div
+        style={{
+          fontSize: 9 * scale,
+          color: 'rgba(240,242,245,0.4)',
+          textAlign: 'center',
+          marginTop: 3 * scale,
+          letterSpacing: '0.05em',
+        }}
+      >
         {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
       </div>
 
       {/* Active timer countdown */}
-      {activeTimer && (
+      {activeTimer && style !== 'minimal' && (
         <div style={{
           marginTop: 8 * scale,
           padding: `${6 * scale}px ${8 * scale}px`,
@@ -155,7 +187,7 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
 
 const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
   const [now, setNow] = useState(new Date());
-  const { timers, setMinimized, setClockMode } = useStore();
+  const { timers, setMinimized, setClockMode, settings } = useStore();
   const [showMenu, setShowMenu] = useState(false);
 
   const handleDragStart = (e: React.MouseEvent) => {
@@ -198,6 +230,7 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
   const timerStart = toXY(-90, timerR);
   const timerEnd = toXY(-90 + timerAngle, timerR);
   const largeArc = timerAngle > 180 ? 1 : 0;
+  const style = settings.analogWatchStyle;
 
   return (
     <div
@@ -239,8 +272,22 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
 
       <svg width={size} height={size}>
         {/* Background */}
-        <circle cx={cx} cy={cx} r={r} fill="rgba(10,12,16,0.85)" />
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--border-accent)" strokeWidth={1.5} />
+        <circle
+          cx={cx}
+          cy={cx}
+          r={r}
+          fill={style === 'minimal' ? 'rgba(10,12,16,0.35)' : 'rgba(10,12,16,0.85)'}
+        />
+        {style !== 'minimal' && (
+          <circle
+            cx={cx}
+            cy={cx}
+            r={r}
+            fill="none"
+            stroke={style === 'neon' ? 'var(--accent-strong)' : 'var(--border-accent)'}
+            strokeWidth={style === 'neon' ? 2.2 : 1.5}
+          />
+        )}
 
         {/* Backdrop blur effect via filter */}
         <defs>
@@ -251,7 +298,7 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
         </defs>
 
         {/* Timer arc */}
-        {activeTimer && timerAngle > 0 && (
+        {activeTimer && timerAngle > 0 && style !== 'minimal' && (
           <path
             d={`M ${timerStart.x} ${timerStart.y} A ${timerR} ${timerR} 0 ${largeArc} 1 ${timerEnd.x} ${timerEnd.y}`}
             fill="none"
@@ -262,35 +309,48 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
         )}
 
         {/* Hour markers */}
-        {Array.from({ length: 12 }, (_, i) => {
-          const a = (i / 12) * 360 - 90;
-          const inner = toXY(a, r - 8);
-          const outer = toXY(a, r - 3);
-          return (
-            <line key={i}
-              x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
-              stroke={i === 0 || i % 3 === 0 ? 'var(--accent-strong)' : 'rgba(255,255,255,0.15)'}
-              strokeWidth={i % 3 === 0 ? 1.5 : 0.5}
-            />
-          );
-        })}
+        {style !== 'minimal' &&
+          Array.from({ length: 12 }, (_, i) => {
+            const a = (i / 12) * 360 - 90;
+            const inner = toXY(a, r - 8);
+            const outer = toXY(a, r - 3);
+            return (
+              <line
+                key={i}
+                x1={inner.x}
+                y1={inner.y}
+                x2={outer.x}
+                y2={outer.y}
+                stroke={
+                  i === 0 || i % 3 === 0
+                    ? style === 'neon'
+                      ? 'var(--accent)'
+                      : 'var(--accent-strong)'
+                    : 'rgba(255,255,255,0.15)'
+                }
+                strokeWidth={i % 3 === 0 ? 1.5 : 0.5}
+              />
+            );
+          })}
 
         {/* Hour hand */}
         <line
           x1={cx} y1={cx} x2={hPos.x} y2={hPos.y}
-          stroke="#f0f2f5" strokeWidth={3} strokeLinecap="round"
+          stroke="#f0f2f5" strokeWidth={style === 'neon' ? 3.5 : 3} strokeLinecap="round"
           filter="url(#glow)"
         />
         {/* Minute hand */}
         <line
           x1={cx} y1={cx} x2={mPos.x} y2={mPos.y}
-          stroke="var(--accent)" strokeWidth={2} strokeLinecap="round"
+          stroke="var(--accent)" strokeWidth={style === 'neon' ? 2.6 : 2} strokeLinecap="round"
           filter="url(#glow)"
         />
         {/* Second hand */}
         <line
           x1={cx} y1={cx} x2={sPos.x} y2={sPos.y}
-          stroke="#ff4d4d" strokeWidth={1} strokeLinecap="round"
+          stroke={style === 'neon' ? '#ff6b6b' : '#ff4d4d'}
+          strokeWidth={style === 'neon' ? 1.5 : 1}
+          strokeLinecap="round"
         />
         {/* Center dot */}
         <circle cx={cx} cy={cx} r={3} fill="var(--accent)" />

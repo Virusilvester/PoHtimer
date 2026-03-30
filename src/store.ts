@@ -62,6 +62,8 @@ export interface Settings {
   theme: 'dark' | 'midnight' | 'amber';
   accentColor: string;
   minimizeMode: 'digital' | 'analog';
+  digitalWatchStyle: 'minimal' | 'glass' | 'panel';
+  analogWatchStyle: 'classic' | 'neon' | 'minimal';
   clockSize: number;
   clockPosition: { x: number; y: number };
   notifyBeforeSeconds: number;
@@ -116,6 +118,8 @@ const defaultSettings: Settings = {
   theme: 'dark',
   accentColor: '#ffb900',
   minimizeMode: 'digital',
+  digitalWatchStyle: 'minimal',
+  analogWatchStyle: 'classic',
   clockSize: 160,
   clockPosition: { x: 20, y: 20 },
   notifyBeforeSeconds: 30,
