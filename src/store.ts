@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { nextScheduleOccurrence } from "./schedule";
 
 export type PowerAction =
   | "shutdown"
@@ -10,6 +11,7 @@ export type PowerAction =
   | "logoff"
   | "none";
 export type TimerStatus = "idle" | "running" | "paused" | "expired";
+export type TimerKind = "duration" | "schedule";
 export type View =
   | "dashboard"
   | "timer"
@@ -50,6 +52,10 @@ export interface TimerEntry {
   firedAt?: number;
   repeat: boolean;
   warnedAt?: number;
+  kind?: TimerKind;
+  scheduleTime?: string;
+  scheduleDays?: number[];
+  nextFireAt?: number;
 }
 
 export interface BatteryRule {
@@ -110,6 +116,7 @@ interface AppState {
   updateTimer: (id: string, patch: Partial<TimerEntry>) => void;
   removeTimer: (id: string) => void;
   toggleTimer: (id: string) => void;
+  resetTimer: (id: string) => void;
   tickTimers: () => void;
 
   addBatteryRule: (r: Omit<BatteryRule, "id">) => void;
@@ -200,13 +207,33 @@ export const useStore = create<AppState>()(
         set((s) => ({
           timers: [
             ...s.timers,
-            {
-              ...t,
-              id: uid(),
-              createdAt: Date.now(),
-              remaining: t.duration,
-              status: "running",
-            },
+            (() => {
+              const now = Date.now();
+              if (t.kind === "schedule" && t.scheduleTime) {
+                const next = nextScheduleOccurrence(
+                  t.scheduleTime,
+                  t.scheduleDays,
+                  new Date(now),
+                );
+                const seconds = next?.seconds ?? t.duration;
+                return {
+                  ...t,
+                  id: uid(),
+                  createdAt: now,
+                  remaining: seconds,
+                  duration: seconds,
+                  status: "running",
+                  nextFireAt: next?.nextAt,
+                };
+              }
+              return {
+                ...t,
+                id: uid(),
+                createdAt: now,
+                remaining: t.duration,
+                status: "running",
+              };
+            })(),
           ],
         })),
 
@@ -226,8 +253,55 @@ export const useStore = create<AppState>()(
           timers: s.timers.map((t) => {
             if (t.id !== id) return t;
             if (t.status === "running") return { ...t, status: "paused" };
-            if (t.status === "paused") return { ...t, status: "running" };
+            if (t.status === "paused") {
+              if (t.kind === "schedule" && t.scheduleTime) {
+                const next = nextScheduleOccurrence(
+                  t.scheduleTime,
+                  t.scheduleDays,
+                  new Date(),
+                );
+                if (!next) return { ...t, status: "paused" };
+                return {
+                  ...t,
+                  status: "running",
+                  remaining: next.seconds,
+                  duration: next.seconds,
+                  warnedAt: undefined,
+                  nextFireAt: next.nextAt,
+                };
+              }
+              return { ...t, status: "running" };
+            }
             return t;
+          }),
+        })),
+
+      resetTimer: (id) =>
+        set((s) => ({
+          timers: s.timers.map((t) => {
+            if (t.id !== id) return t;
+            if (t.kind === "schedule" && t.scheduleTime) {
+              const next = nextScheduleOccurrence(
+                t.scheduleTime,
+                t.scheduleDays,
+                new Date(),
+              );
+              if (!next) return { ...t };
+              return {
+                ...t,
+                remaining: next.seconds,
+                duration: next.seconds,
+                status: "running",
+                warnedAt: undefined,
+                nextFireAt: next.nextAt,
+              };
+            }
+            return {
+              ...t,
+              remaining: t.duration,
+              status: "running",
+              warnedAt: undefined,
+            };
           }),
         })),
 
@@ -238,6 +312,60 @@ export const useStore = create<AppState>()(
 
           const timers = s.timers.map((t) => {
             if (t.status !== "running") return t;
+
+            if (t.kind === "schedule" && t.scheduleTime) {
+              const remaining = t.remaining - 1;
+              if (remaining > 0)
+                return {
+                  ...t,
+                  remaining,
+                };
+
+              const alreadyQueued = pendingActions.some(
+                (a) => a.source === "timer" && a.timerId === t.id,
+              );
+              if (!alreadyQueued) {
+                pendingActions.push({
+                  id: uid(),
+                  source: "timer",
+                  action: t.action,
+                  label: t.label,
+                  createdAt: now,
+                  timerId: t.id,
+                });
+              }
+
+              if (!t.repeat) {
+                return {
+                  ...t,
+                  remaining: 0,
+                  status: "expired" as TimerStatus,
+                  firedAt: now,
+                };
+              }
+
+              const next = nextScheduleOccurrence(
+                t.scheduleTime,
+                t.scheduleDays,
+                new Date(now),
+              );
+              if (!next)
+                return {
+                  ...t,
+                  remaining: 0,
+                  status: "paused" as TimerStatus,
+                };
+
+              return {
+                ...t,
+                remaining: next.seconds,
+                duration: next.seconds,
+                status: "running" as TimerStatus,
+                firedAt: now,
+                warnedAt: undefined,
+                nextFireAt: next.nextAt,
+              };
+            }
 
             const remaining = t.remaining - 1;
             if (remaining > 0) return { ...t, remaining };

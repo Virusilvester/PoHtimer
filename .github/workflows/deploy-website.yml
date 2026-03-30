@@ -1,0 +1,91 @@
+name: Deploy Website
+
+on:
+  # Run after a successful release
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  # Allow manual deploys
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deploy target"
+        type: choice
+        options: [production, preview]
+        default: production
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch latest release info from GitHub
+        id: release
+        run: |
+          DATA=$(curl -s -H "Authorization: Bearer ${{ secrets.RELEASE_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+
+          VERSION=$(echo $DATA | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest version: $VERSION"
+
+      - name: Download latest.json from release
+        run: |
+          curl -fsSL \
+            "https://github.com/${{ github.repository }}/releases/latest/download/latest.json" \
+            -o website/latest.json || echo '{"version":"${{ steps.release.outputs.version }}","notes":"","platforms":{}}' > website/latest.json
+          echo "=== latest.json ===" && cat website/latest.json
+
+      - name: Inject version into website HTML
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          # Replace placeholder version strings in the HTML
+          sed -i "s/v1\.0\.0/v$VERSION/g" website/index.html
+          sed -i "s/PoHtimer_1\.0\.0/PoHtimer_$VERSION/g" website/index.html
+          echo "✓ Injected version $VERSION into HTML"
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel (Production)
+        id: deploy
+        if: ${{ github.event.inputs.environment == 'production' || github.event_name == 'workflow_run' }}
+        run: |
+          URL=$(vercel deploy website/ \
+            --prod \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=${{ secrets.VERCEL_ORG_ID }} \
+            --yes \
+            2>&1 | tail -1)
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "✓ Deployed to: $URL"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel (Preview)
+        if: ${{ github.event.inputs.environment == 'preview' }}
+        run: |
+          vercel deploy website/ \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=${{ secrets.VERCEL_ORG_ID }} \
+            --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Add deploy summary
+        run: |
+          echo "## 🌐 Website deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**latest.json:** ✅ Updated" >> $GITHUB_STEP_SUMMARY

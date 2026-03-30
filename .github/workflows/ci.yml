@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "website/**"
+      - ".github/ISSUE_TEMPLATE/**"
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "website/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  NODE_VERSION: "20"
+
+jobs:
+  # ── 1. Frontend lint & type-check ──────────────────────────
+  frontend:
+    name: Frontend (lint + typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type-check
+        run: npx tsc --noEmit
+
+      - name: Vite build (frontend only)
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 3
+
+  # ── 2. Rust check & clippy ─────────────────────────────────
+  rust-check:
+    name: Rust (check + clippy)
+    runs-on: windows-latest          # Windows-only APIs need Windows runner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache Cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Node.js (needed by tauri-build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build frontend (tauri-build needs dist/)
+        run: npm run build
+
+      - name: Cargo check
+        working-directory: src-tauri
+        run: cargo check --release
+
+      - name: Cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --release -- -D warnings
+
+      - name: Cargo fmt check
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+  # ── 3. Quick smoke build (Windows) ─────────────────────────
+  smoke-build:
+    name: Smoke build (Windows)
+    runs-on: windows-latest
+    needs: [frontend, rust-check]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Tauri build (no bundle — faster)
+        run: npm run tauri build -- --no-bundle
+
+      - name: Confirm binary exists
+        run: |
+          if (Test-Path "src-tauri/target/release/pohtimer.exe") {
+            Write-Host "✓ Binary compiled successfully"
+          } else {
+            Write-Host "✗ Binary missing" -ForegroundColor Red
+            exit 1
+          }
+        shell: pwsh

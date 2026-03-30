@@ -1,0 +1,123 @@
+# ─────────────────────────────────────────────────────────────
+#  PoHtimer · Dependency Audit & Update Workflow
+#  Schedule: every Monday at 08:00 UTC
+#  Also: triggered manually via workflow_dispatch
+# ─────────────────────────────────────────────────────────────
+name: Dependency Audit
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"    # Monday 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      auto_pr:
+        description: "Create PR for updates automatically"
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  # ── npm audit ──────────────────────────────────────────────
+  npm-audit:
+    name: npm security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm audit (JSON for summary)
+        run: |
+          npm audit --json > audit.json || true
+          node -e "
+            const a = require('./audit.json');
+            const meta = a.metadata || {};
+            console.log('Vulnerabilities:', JSON.stringify(meta.vulnerabilities || {}));
+            if (meta.vulnerabilities) {
+              const {critical=0, high=0, moderate=0, low=0} = meta.vulnerabilities;
+              if (critical > 0 || high > 0) process.exit(1);
+            }
+          "
+
+  # ── cargo audit ────────────────────────────────────────────
+  cargo-audit:
+    name: Cargo security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --quiet
+
+      - name: Run cargo audit
+        working-directory: src-tauri
+        run: cargo audit
+
+  # ── Check for outdated npm packages ────────────────────────
+  npm-outdated:
+    name: Check outdated npm packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check outdated packages
+        run: |
+          echo "## 📦 Outdated npm packages" >> $GITHUB_STEP_SUMMARY
+          npm outdated --json | node -e "
+            let data = '';
+            process.stdin.on('data', d => data += d);
+            process.stdin.on('end', () => {
+              try {
+                const pkgs = JSON.parse(data || '{}');
+                const rows = Object.entries(pkgs).map(([name, info]) =>
+                  \`| \${name} | \${info.current} | \${info.wanted} | \${info.latest} |\`
+                );
+                if (rows.length === 0) {
+                  console.log('All packages up to date ✅');
+                } else {
+                  console.log('| Package | Current | Wanted | Latest |');
+                  console.log('|---------|---------|--------|--------|');
+                  rows.forEach(r => console.log(r));
+                }
+              } catch(e) { console.log('All packages up to date ✅'); }
+            });
+          " >> $GITHUB_STEP_SUMMARY || true
+
+  # ── Check for outdated Rust deps ───────────────────────────
+  cargo-outdated:
+    name: Check outdated Cargo packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated --quiet
+
+      - name: Check outdated crates
+        working-directory: src-tauri
+        run: cargo outdated --root-deps-only
+        continue-on-error: true

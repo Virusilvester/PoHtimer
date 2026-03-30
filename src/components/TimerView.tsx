@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useStore, type TimerEntry } from "../store";
 import {
   Card,
@@ -16,6 +16,14 @@ import {
   parseTimeInput,
   QUICK_DURATIONS,
 } from "../utils";
+import {
+  ALL_DAYS,
+  DAY_LABELS,
+  WEEKDAYS,
+  WEEKEND,
+  formatScheduleDays,
+  nextScheduleOccurrence,
+} from "../schedule";
 
 const TimerProgressRing: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
   const r = 52;
@@ -97,7 +105,14 @@ const TimerProgressRing: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
 };
 
 const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
-  const { toggleTimer, removeTimer, updateTimer } = useStore();
+  const { toggleTimer, removeTimer, resetTimer } = useStore();
+  const isSchedule = timer.kind === "schedule" && !!timer.scheduleTime;
+  const nextRun =
+    isSchedule && timer.nextFireAt
+      ? new Date(timer.nextFireAt)
+      : isSchedule
+        ? new Date(Date.now() + timer.remaining * 1000)
+        : null;
 
   return (
     <Card glow={timer.status === "running"} style={{ padding: "20px" }}>
@@ -167,6 +182,22 @@ const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
           <div style={{ marginBottom: 10 }}>
             <ActionBadge action={timer.action} />
           </div>
+          {isSchedule && (
+            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+              At {timer.scheduleTime} - {formatScheduleDays(timer.scheduleDays)}
+              {nextRun && (
+                <span style={{ marginLeft: 6 }}>
+                  (next{" "}
+                  {nextRun.toLocaleString("en-US", {
+                    weekday: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  )
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Progress bar */}
           <div
@@ -206,12 +237,7 @@ const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
               <Btn
                 size="sm"
                 variant="outline"
-                onClick={() =>
-                  updateTimer(timer.id, {
-                    remaining: timer.duration,
-                    status: "running",
-                  })
-                }
+                onClick={() => resetTimer(timer.id)}
               >
                 ↺ Restart
               </Btn>
@@ -219,12 +245,7 @@ const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
             <Btn
               size="sm"
               variant="ghost"
-              onClick={() =>
-                updateTimer(timer.id, {
-                  remaining: timer.duration,
-                  status: "running",
-                })
-              }
+              onClick={() => resetTimer(timer.id)}
             >
               ⟳ Reset
             </Btn>
@@ -246,21 +267,65 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { addTimer } = useStore();
   const [label, setLabel] = useState("");
   const [timeStr, setTimeStr] = useState("");
+  const [timerType, setTimerType] = useState<"duration" | "schedule">(
+    "duration",
+  );
+  const [scheduleTime, setScheduleTime] = useState("10:00");
+  const [scheduleDays, setScheduleDays] = useState<number[]>(ALL_DAYS);
   const [action, setAction] = useState<any>("shutdown");
   const [repeat, setRepeat] = useState(false);
   const [error, setError] = useState("");
 
+  const nextSchedule = useMemo(
+    () => nextScheduleOccurrence(scheduleTime, scheduleDays, new Date()),
+    [scheduleTime, scheduleDays],
+  );
+
   const handleCreate = () => {
-    const duration = parseTimeInput(timeStr);
     if (!label.trim()) {
       setError("Please enter a timer label");
       return;
     }
-    if (!duration || duration <= 0) {
-      setError("Please enter a valid duration (e.g. 30m, 1h30m, 90:00)");
+
+    if (timerType === "duration") {
+      const duration = parseTimeInput(timeStr);
+      if (!duration || duration <= 0) {
+        setError("Please enter a valid duration (e.g. 30m, 1h30m, 90:00)");
+        return;
+      }
+      addTimer({
+        label: label.trim(),
+        duration,
+        action,
+        repeat,
+        kind: "duration",
+      });
+      onClose();
       return;
     }
-    addTimer({ label: label.trim(), duration, action, repeat });
+
+    if (!scheduleTime) {
+      setError("Please choose a time");
+      return;
+    }
+    if (!scheduleDays.length) {
+      setError("Select at least one day");
+      return;
+    }
+    if (!nextSchedule) {
+      setError("Please enter a valid schedule time");
+      return;
+    }
+    addTimer({
+      label: label.trim(),
+      duration: nextSchedule.seconds,
+      action,
+      repeat: true,
+      kind: "schedule",
+      scheduleTime,
+      scheduleDays,
+      nextFireAt: nextSchedule.nextAt,
+    });
     onClose();
   };
 
@@ -342,55 +407,185 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             }}
           />
 
-          <div>
-            <Input
-              label="Duration"
-              placeholder="e.g. 30m, 1h30m, 90:00, 5400"
-              value={timeStr}
-              onChange={(e) => {
-                setTimeStr(e.target.value);
-                setError("");
-              }}
-              hint="Formats: 1h30m, 1:30:00, 90m, 5400 (seconds)"
-              error={error && error.includes("duration") ? error : ""}
-            />
-            {/* Quick picks */}
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                flexWrap: "wrap",
-                marginTop: 8,
-              }}
-            >
-              {QUICK_DURATIONS.map(({ label: ql, value }) => (
-                <button
-                  key={value}
-                  onClick={() => {
-                    setTimeStr(String(value));
-                    setError("");
-                  }}
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    background:
-                      timeStr === String(value)
-                        ? "var(--accent-dim)"
-                        : "var(--bg-overlay)",
-                    border: `1px solid ${timeStr === String(value) ? "var(--border-accent)" : "var(--border)"}`,
-                    color:
-                      timeStr === String(value)
-                        ? "var(--accent)"
-                        : "var(--text-muted)",
-                    fontSize: 11,
-                    cursor: "pointer",
-                  }}
-                >
-                  {ql}
-                </button>
-              ))}
-            </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {(["duration", "schedule"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => {
+                  setTimerType(t);
+                  setError("");
+                }}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  cursor: "pointer",
+                  background:
+                    timerType === t
+                      ? "var(--accent-dim)"
+                      : "var(--bg-overlay)",
+                  border: `1px solid ${timerType === t ? "var(--border-accent)" : "var(--border)"}`,
+                  color:
+                    timerType === t ? "var(--accent)" : "var(--text-muted)",
+                  textTransform: "capitalize",
+                }}
+              >
+                {t === "duration" ? "Countdown" : "Schedule time"}
+              </button>
+            ))}
           </div>
+
+          {timerType === "duration" ? (
+            <div>
+              <Input
+                label="Duration"
+                placeholder="e.g. 30m, 1h30m, 90:00, 5400"
+                value={timeStr}
+                onChange={(e) => {
+                  setTimeStr(e.target.value);
+                  setError("");
+                }}
+                hint="Formats: 1h30m, 1:30:00, 90m, 5400 (seconds)"
+                error={error && error.includes("duration") ? error : ""}
+              />
+              {/* Quick picks */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  marginTop: 8,
+                }}
+              >
+                {QUICK_DURATIONS.map(({ label: ql, value }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      setTimeStr(String(value));
+                      setError("");
+                    }}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      background:
+                        timeStr === String(value)
+                          ? "var(--accent-dim)"
+                          : "var(--bg-overlay)",
+                      border: `1px solid ${timeStr === String(value) ? "var(--border-accent)" : "var(--border)"}`,
+                      color:
+                        timeStr === String(value)
+                          ? "var(--accent)"
+                          : "var(--text-muted)",
+                      fontSize: 11,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {ql}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <Input
+                label="Time of day"
+                type="time"
+                value={scheduleTime}
+                onChange={(e) => {
+                  setScheduleTime(e.target.value);
+                  setError("");
+                }}
+                error={
+                  error && error.toLowerCase().includes("time") ? error : ""
+                }
+              />
+
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[
+                  { label: "Daily", value: ALL_DAYS },
+                  { label: "Weekdays", value: WEEKDAYS },
+                  { label: "Weekend", value: WEEKEND },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => {
+                      setScheduleDays(preset.value);
+                      setError("");
+                    }}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 6,
+                      background:
+                        formatScheduleDays(scheduleDays) === preset.label
+                          ? "var(--accent-dim)"
+                          : "var(--bg-overlay)",
+                      border: `1px solid ${formatScheduleDays(scheduleDays) === preset.label ? "var(--border-accent)" : "var(--border)"}`,
+                      color:
+                        formatScheduleDays(scheduleDays) === preset.label
+                          ? "var(--accent)"
+                          : "var(--text-muted)",
+                      fontSize: 11,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {DAY_LABELS.map((labelText, idx) => {
+                  const selected = scheduleDays.includes(idx);
+                  return (
+                    <button
+                      key={labelText}
+                      onClick={() => {
+                        setScheduleDays((prev) => {
+                          if (prev.includes(idx)) {
+                            return prev.filter((d) => d !== idx);
+                          }
+                          return [...prev, idx].sort((a, b) => a - b);
+                        });
+                        setError("");
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        background: selected
+                          ? "var(--accent-dim)"
+                          : "var(--bg-overlay)",
+                        border: `1px solid ${selected ? "var(--border-accent)" : "var(--border)"}`,
+                        color: selected ? "var(--accent)" : "var(--text-muted)",
+                        fontSize: 11,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {labelText}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                {scheduleDays.length === 0
+                  ? "Select at least one day"
+                  : `Next run: ${
+                      nextSchedule
+                        ? new Date(nextSchedule.nextAt).toLocaleString(
+                            "en-US",
+                            {
+                              weekday: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )
+                        : "-"
+                    }`}
+              </div>
+            </div>
+          )}
 
           <div>
             <div
@@ -406,29 +601,31 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <ActionPicker value={action} onChange={setAction} />
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  fontWeight: 500,
-                }}
-              >
-                Repeat timer
+          {timerType === "duration" && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-secondary)",
+                    fontWeight: 500,
+                  }}
+                >
+                  Repeat timer
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  Restart automatically after firing
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                Restart automatically after firing
-              </div>
+              <Toggle checked={repeat} onChange={setRepeat} />
             </div>
-            <Toggle checked={repeat} onChange={setRepeat} />
-          </div>
+          )}
 
           {error && !error.includes("duration") && (
             <div

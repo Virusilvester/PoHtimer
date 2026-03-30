@@ -1,0 +1,350 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"          # v1.0.0
+      - "v[0-9]+.[0-9]+.[0-9]+-*"        # v1.0.0-beta.1
+
+permissions:
+  contents: write        # create releases, upload assets
+  packages: write
+
+env:
+  NODE_VERSION: "20"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── 1. Validate the tag & extract version ──────────────────
+  validate-tag:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+      release_name: ${{ steps.meta.outputs.release_name }}
+      changelog: ${{ steps.meta.outputs.changelog }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # needed for changelog generation
+
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Detect pre-release (contains hyphen: v1.0.0-beta.1)
+          if [[ "$TAG" == *"-"* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "release_name=PoHtimer $TAG (Pre-release)" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "release_name=PoHtimer $TAG" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version matches package.json
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Tag version ($TAG_VERSION) does not match package.json ($PKG_VERSION)"
+            echo "Run: node scripts/bump-version.js $TAG_VERSION"
+            exit 1
+          fi
+          echo "✓ Version match: $PKG_VERSION"
+
+      - name: Validate version matches Cargo.toml
+        run: |
+          CARGO_VERSION=$(grep '^version' src-tauri/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Cargo.toml version ($CARGO_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "✓ Cargo version match: $CARGO_VERSION"
+
+      - name: Generate changelog from git log
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            LOG=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
+          else
+            LOG=$(git log --pretty=format:"- %s (%h)" HEAD~10..HEAD)
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # ── 2. Build Windows installers ────────────────────────────
+  build-windows:
+    name: Build Windows (${{ matrix.target }})
+    runs-on: windows-latest
+    needs: validate-tag
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            arch: x64
+          - target: aarch64-pc-windows-msvc
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable + target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Tauri application
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: --target ${{ matrix.target }}
+
+      - name: List bundle output
+        run: |
+          Write-Host "=== Bundle output ==="
+          Get-ChildItem -Recurse "src-tauri/target/${{ matrix.target }}/release/bundle" -Include "*.msi","*.exe","*.sig" | ForEach-Object { Write-Host $_.FullName }
+        shell: pwsh
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.arch }}-msi
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+      - name: Upload NSIS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.arch }}-nsis
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Upload signatures
+        uses: actions/upload-artifact@v4
+        with:
+          name: signatures-${{ matrix.arch }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.sig
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.sig
+          if-no-files-found: warn
+
+  # ── 3. Create GitHub Release ───────────────────────────────
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate-tag, build-windows]
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: installers/
+          pattern: installer-*
+
+      - name: Download signature artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: signatures/
+          pattern: signatures-*
+
+      - name: List downloaded files
+        run: find installers/ signatures/ -type f | sort
+
+      - name: Rename artifacts with version + arch
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          mkdir -p release-assets/
+
+          # x64 MSI
+          find installers/installer-x64-msi/ -name "*.msi" -exec cp {} \
+            "release-assets/PoHtimer_${VERSION}_x64.msi" \;
+
+          # x64 NSIS
+          find installers/installer-x64-nsis/ -name "*.exe" -exec cp {} \
+            "release-assets/PoHtimer_${VERSION}_x64-setup.exe" \;
+
+          # arm64 MSI
+          find installers/installer-arm64-msi/ -name "*.msi" -exec cp {} \
+            "release-assets/PoHtimer_${VERSION}_arm64.msi" \; 2>/dev/null || true
+
+          # arm64 NSIS
+          find installers/installer-arm64-nsis/ -name "*.exe" -exec cp {} \
+            "release-assets/PoHtimer_${VERSION}_arm64-setup.exe" \; 2>/dev/null || true
+
+          # Signatures
+          find signatures/ -name "*.sig" -exec cp {} release-assets/ \; 2>/dev/null || true
+
+          echo "=== Release assets ==="
+          ls -lh release-assets/
+
+      - name: Generate SHA-256 checksums
+        run: |
+          cd release-assets/
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Build release body
+        id: body
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          cat > release_body.md << 'BODY'
+          ## PoHtimer v$VERSION
+
+          Power scheduling utility for Windows — set timers to shutdown, restart, hibernate, sleep, lock, or log off your PC. Includes laptop battery rules and a desktop clock overlay.
+
+          ### 📥 Downloads
+
+          | File | Architecture | Format |
+          |------|-------------|--------|
+          | `PoHtimer_${VERSION}_x64-setup.exe` | 64-bit (Intel/AMD) | NSIS Installer (recommended) |
+          | `PoHtimer_${VERSION}_x64.msi` | 64-bit (Intel/AMD) | Windows Installer |
+          | `PoHtimer_${VERSION}_arm64-setup.exe` | ARM64 (Surface Pro X, etc.) | NSIS Installer |
+          | `PoHtimer_${VERSION}_arm64.msi` | ARM64 | Windows Installer |
+
+          ### ✅ Installation
+          1. Download the `-setup.exe` for your architecture (most users: `x64`)
+          2. Run the installer — click **More info → Run anyway** if SmartScreen appears
+          3. Launch from the Start Menu
+
+          ### 🔒 Verification
+          Verify your download with the included `SHA256SUMS.txt`.
+
+          ### 📋 What's new
+          ${{ needs.validate-tag.outputs.changelog }}
+
+          ### ⚙️ System requirements
+          - Windows 10 (1803+) or Windows 11
+          - Microsoft Edge WebView2 Runtime (pre-installed on Win10/11)
+          - Administrator rights for power actions
+
+          ---
+          *Built with Tauri 2 + React + TypeScript*
+          BODY
+          sed -i "s/\$VERSION/$VERSION/g" release_body.md
+          cat release_body.md
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ needs.validate-tag.outputs.release_name }}
+          body_path: release_body.md
+          prerelease: ${{ needs.validate-tag.outputs.is_prerelease }}
+          files: |
+            release-assets/*
+          token: ${{ secrets.RELEASE_TOKEN }}
+          fail_on_unmatched_files: true
+
+  # ── 4. Generate latest.json for auto-updater ───────────────
+  update-manifest:
+    name: Publish auto-updater manifest
+    runs-on: ubuntu-latest
+    needs: [validate-tag, release]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download signatures
+        uses: actions/download-artifact@v4
+        with:
+          path: signatures/
+          pattern: signatures-*
+
+      - name: Generate latest.json
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Read .sig files for each platform
+          SIG_X64_NSIS=$(cat signatures/signatures-x64/*.exe.sig 2>/dev/null | tr -d '\n' || echo "")
+          SIG_X64_MSI=$(cat signatures/signatures-x64/*.msi.sig 2>/dev/null | tr -d '\n' || echo "")
+
+          cat > latest.json << EOF
+          {
+            "version": "$VERSION",
+            "notes": "See the release page for full changelog: https://github.com/${{ github.repository }}/releases/tag/v$VERSION",
+            "pub_date": "$RELEASE_DATE",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "$SIG_X64_NSIS",
+                "url": "https://github.com/${{ github.repository }}/releases/download/v$VERSION/PoHtimer_${VERSION}_x64-setup.exe"
+              },
+              "windows-i686": {
+                "signature": "$SIG_X64_NSIS",
+                "url": "https://github.com/${{ github.repository }}/releases/download/v$VERSION/PoHtimer_${VERSION}_x64-setup.exe"
+              }
+            }
+          }
+          EOF
+          echo "Generated latest.json:"
+          cat latest.json
+
+      - name: Upload latest.json to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: latest.json
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Upload latest.json artifact (for website deploy)
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-manifest
+          path: latest.json
+
+  # ── 5. Notify on success ───────────────────────────────────
+  notify:
+    name: Release notification
+    runs-on: ubuntu-latest
+    needs: [validate-tag, release, update-manifest]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          if [ "${{ needs.release.result }}" = "success" ]; then
+            echo "## ✅ Release v${{ needs.validate-tag.outputs.version }} published!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Release URL:** https://github.com/${{ github.repository }}/releases/tag/v${{ needs.validate-tag.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Asset | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Windows x64 NSIS | ✅ |" >> $GITHUB_STEP_SUMMARY
+            echo "| Windows x64 MSI  | ✅ |" >> $GITHUB_STEP_SUMMARY
+            echo "| ARM64 installers | ✅ |" >> $GITHUB_STEP_SUMMARY
+            echo "| Auto-updater manifest | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Release v${{ needs.validate-tag.outputs.version }} FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "Check the failed jobs above." >> $GITHUB_STEP_SUMMARY
+          fi

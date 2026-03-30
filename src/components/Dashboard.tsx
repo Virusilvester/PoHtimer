@@ -116,6 +116,13 @@ const ActiveTimerCard: React.FC<{ id: string }> = ({ id }) => {
   const { timers, toggleTimer, removeTimer } = useStore();
   const timer = timers.find((t) => t.id === id);
   if (!timer) return null;
+  const isSchedule = timer.kind === "schedule" && !!timer.scheduleTime;
+  const nextRun =
+    isSchedule && timer.nextFireAt
+      ? new Date(timer.nextFireAt)
+      : isSchedule
+        ? new Date(Date.now() + timer.remaining * 1000)
+        : null;
   const pct = (1 - timer.remaining / timer.duration) * 100;
   const circumference = 2 * Math.PI * 28;
   const dashOffset = circumference * (1 - pct / 100);
@@ -198,7 +205,13 @@ const ActiveTimerCard: React.FC<{ id: string }> = ({ id }) => {
         <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
           {timer.status === "paused"
             ? "⏸ Paused"
-            : `⏱ ${formatDurationLong(timer.remaining)} left`}
+            : isSchedule && nextRun
+              ? `⏰ Next: ${nextRun.toLocaleString("en-US", {
+                  weekday: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}`
+              : `⏱ ${formatDurationLong(timer.remaining)} left`}
         </div>
       </div>
       <div style={{ display: "flex", gap: 4 }}>
