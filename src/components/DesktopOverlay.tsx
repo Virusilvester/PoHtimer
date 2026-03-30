@@ -22,28 +22,22 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
   const activeTimer = timers.find(t => t.status === 'running');
   const scale = size / 160;
   const style = settings.digitalWatchStyle;
-  const containerStyle =
-    style === 'minimal'
-      ? {
-          background: 'transparent',
-          border: 'none',
-          boxShadow: 'none',
-          padding: 6 * scale,
-        }
+  const containerStyle = {
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
+    padding: 6 * scale,
+  };
+  const timeColor =
+    style === 'glass'
+      ? 'rgba(240,242,245,0.95)'
       : style === 'panel'
-        ? {
-            background: 'rgba(14,18,26,0.9)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.65)',
-            padding: 12 * scale,
-          }
-        : {
-            background: 'rgba(10,12,16,0.85)',
-            border: '1px solid var(--border-accent)',
-            boxShadow:
-              '0 8px 32px rgba(0,0,0,0.6), 0 0 20px var(--accent-shadow)',
-            padding: 14 * scale,
-          };
+        ? 'rgba(240,242,245,0.9)'
+        : 'var(--accent)';
+  const timeGlow =
+    style === 'panel'
+      ? '0 0 10px rgba(240,242,245,0.15)'
+      : '0 0 20px var(--accent-glow-strong)';
 
   return (
     <div
@@ -53,9 +47,9 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         width: size,
         height: activeTimer ? size * 1.1 : size * 0.65,
         background: containerStyle.background,
-        backdropFilter: style === 'minimal' ? 'none' : 'blur(12px)',
+        backdropFilter: 'none',
         border: containerStyle.border,
-        borderRadius: 16 * scale,
+        borderRadius: style === 'minimal' ? 0 : 12 * scale,
         padding: containerStyle.padding,
         cursor: 'grab',
         userSelect: 'none',
@@ -70,21 +64,21 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         <div
           data-tauri-drag-region
           style={{
-            height: 12 * scale,
+            height: 10 * scale,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 6 * scale,
+            marginBottom: 4 * scale,
             cursor: 'grab',
+            opacity: 0.15,
           }}
         >
           <div
             style={{
-              width: 38 * scale,
-              height: 3 * scale,
+              width: 26 * scale,
+              height: 2 * scale,
               borderRadius: 999,
-              background: 'rgba(240,242,245,0.14)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(240,242,245,0.4)',
             }}
           />
         </div>
@@ -95,10 +89,10 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         fontFamily: 'var(--font-mono)',
         fontSize: 32 * scale,
         fontWeight: 700,
-        color: 'var(--accent)',
+        color: timeColor,
         letterSpacing: '-0.02em',
         lineHeight: 1,
-        textShadow: '0 0 20px var(--accent-glow-strong)',
+        textShadow: timeGlow,
         textAlign: 'center',
       }}>
         {now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
@@ -124,8 +118,8 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         <div style={{
           marginTop: 8 * scale,
           padding: `${6 * scale}px ${8 * scale}px`,
-          background: 'var(--accent-dim)',
-          border: '1px solid var(--border-accent)',
+          background: 'rgba(0,0,0,0.2)',
+          border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 8 * scale,
           textAlign: 'center',
         }}>

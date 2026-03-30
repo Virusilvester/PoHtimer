@@ -202,6 +202,7 @@ fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result
 
     win.set_decorations(false).map_err(|e| e.to_string())?;
     win.set_always_on_top(true).map_err(|e| e.to_string())?;
+    let _ = win.set_resizable(false);
     let _ = win.set_skip_taskbar(true);
 
     let size = size.clamp(100, 420);
@@ -222,6 +223,7 @@ fn restore_from_overlay(app: tauri::AppHandle) -> Result<(), String> {
     let win = main_window(&app)?;
     win.set_always_on_top(false).map_err(|e| e.to_string())?;
     win.set_decorations(false).map_err(|e| e.to_string())?;
+    let _ = win.set_resizable(true);
     let _ = win.set_skip_taskbar(false);
     win.set_size(tauri::Size::Physical(tauri::PhysicalSize {
         width: 980,

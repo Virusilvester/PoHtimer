@@ -129,6 +129,14 @@ const App: React.FC = () => {
   }, [settings.autostart, updateSettings]);
 
   useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("contextmenu", handleContextMenu);
+    return () => window.removeEventListener("contextmenu", handleContextMenu);
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("__TAURI_INTERNALS__" in window)) return;
     const enabledCount = batteryRules.filter((r) => r.enabled).length;
