@@ -3,6 +3,20 @@
 version = 4
 
 [[package]]
+name = "PoHtimer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-opener",
+ "windows-sys 0.61.2",
+ "winreg",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2689,20 +2703,6 @@ dependencies = [
  "fdeflate",
  "flate2",
  "miniz_oxide",
-]
-
-[[package]]
-name = "poh-timer"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-opener",
- "windows-sys 0.61.2",
- "winreg",
 ]
 
 [[package]]

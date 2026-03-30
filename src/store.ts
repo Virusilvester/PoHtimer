@@ -1,11 +1,24 @@
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 
-export type PowerAction = 'shutdown' | 'restart' | 'hibernate' | 'sleep' | 'lock' | 'logoff' | 'none';
-export type TimerStatus = 'idle' | 'running' | 'paused' | 'expired';
-export type View = 'dashboard' | 'timer' | 'battery' | 'power' | 'history' | 'settings';
-export type ClockMode = 'digital' | 'analog';
-export type ActionSource = 'timer' | 'battery';
+export type PowerAction =
+  | "shutdown"
+  | "restart"
+  | "hibernate"
+  | "sleep"
+  | "lock"
+  | "logoff"
+  | "none";
+export type TimerStatus = "idle" | "running" | "paused" | "expired";
+export type View =
+  | "dashboard"
+  | "timer"
+  | "battery"
+  | "power"
+  | "history"
+  | "settings";
+export type ClockMode = "digital" | "analog";
+export type ActionSource = "timer" | "battery";
 
 export interface ActionRequest {
   id: string;
@@ -29,8 +42,8 @@ export interface BatteryState {
 export interface TimerEntry {
   id: string;
   label: string;
-  duration: number;       // seconds
-  remaining: number;      // seconds
+  duration: number; // seconds
+  remaining: number; // seconds
   action: PowerAction;
   status: TimerStatus;
   createdAt: number;
@@ -42,8 +55,8 @@ export interface TimerEntry {
 export interface BatteryRule {
   id: string;
   enabled: boolean;
-  type: 'low' | 'percent' | 'unplug';
-  percent?: number;       // for 'percent' type
+  type: "low" | "percent" | "unplug";
+  percent?: number; // for 'percent' type
   action: PowerAction;
   label: string;
 }
@@ -53,17 +66,17 @@ export interface HistoryEntry {
   label: string;
   action: PowerAction;
   timestamp: number;
-  source: 'timer' | 'battery';
-  result?: 'executed' | 'canceled' | 'failed';
+  source: "timer" | "battery";
+  result?: "executed" | "canceled" | "failed";
   error?: string;
 }
 
 export interface Settings {
-  theme: 'dark' | 'midnight' | 'amber';
+  theme: "dark" | "midnight" | "amber";
   accentColor: string;
-  minimizeMode: 'digital' | 'analog';
-  digitalWatchStyle: 'minimal' | 'glass' | 'panel';
-  analogWatchStyle: 'classic' | 'neon' | 'minimal';
+  minimizeMode: "digital" | "analog";
+  digitalWatchStyle: "minimal" | "glass" | "panel";
+  analogWatchStyle: "classic" | "neon" | "minimal";
   clockSize: number;
   clockPosition: { x: number; y: number };
   notifyBeforeSeconds: number;
@@ -71,7 +84,7 @@ export interface Settings {
   startMinimized: boolean;
   autostart: boolean;
   askBeforeClose: boolean;
-  closeAction: 'minimize' | 'exit';
+  closeAction: "minimize" | "exit";
 }
 
 interface AppState {
@@ -91,21 +104,23 @@ interface AppState {
   setClockMode: (m: ClockMode) => void;
   setShowCreateTimer: (v: boolean) => void;
 
-  addTimer: (t: Omit<TimerEntry, 'id' | 'createdAt' | 'remaining' | 'status'>) => void;
+  addTimer: (
+    t: Omit<TimerEntry, "id" | "createdAt" | "remaining" | "status">,
+  ) => void;
   updateTimer: (id: string, patch: Partial<TimerEntry>) => void;
   removeTimer: (id: string) => void;
   toggleTimer: (id: string) => void;
   tickTimers: () => void;
 
-  addBatteryRule: (r: Omit<BatteryRule, 'id'>) => void;
+  addBatteryRule: (r: Omit<BatteryRule, "id">) => void;
   updateBatteryRule: (id: string, patch: Partial<BatteryRule>) => void;
   removeBatteryRule: (id: string) => void;
   toggleBatteryRule: (id: string) => void;
 
-  addHistory: (h: Omit<HistoryEntry, 'id'>) => void;
+  addHistory: (h: Omit<HistoryEntry, "id">) => void;
   clearHistory: () => void;
 
-  enqueueAction: (a: Omit<ActionRequest, 'id' | 'createdAt'>) => void;
+  enqueueAction: (a: Omit<ActionRequest, "id" | "createdAt">) => void;
   dequeueAction: (id: string) => void;
 
   updateSettings: (patch: Partial<Settings>) => void;
@@ -115,11 +130,11 @@ interface AppState {
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 const defaultSettings: Settings = {
-  theme: 'dark',
-  accentColor: '#ffb900',
-  minimizeMode: 'digital',
-  digitalWatchStyle: 'minimal',
-  analogWatchStyle: 'classic',
+  theme: "dark",
+  accentColor: "#ffb900",
+  minimizeMode: "digital",
+  digitalWatchStyle: "minimal",
+  analogWatchStyle: "classic",
   clockSize: 160,
   clockPosition: { x: 20, y: 20 },
   notifyBeforeSeconds: 30,
@@ -127,148 +142,203 @@ const defaultSettings: Settings = {
   startMinimized: false,
   autostart: false,
   askBeforeClose: true,
-  closeAction: 'minimize',
+  closeAction: "minimize",
 };
 
 const defaultBatteryRules: BatteryRule[] = [
-  { id: uid(), enabled: true,  type: 'low',     action: 'hibernate', label: 'Low battery' },
-  { id: uid(), enabled: false, type: 'percent', percent: 10, action: 'shutdown', label: 'Critical level' },
-  { id: uid(), enabled: false, type: 'unplug',  action: 'lock',      label: 'Unplugged' },
+  {
+    id: uid(),
+    enabled: true,
+    type: "low",
+    action: "hibernate",
+    label: "Low battery",
+  },
+  {
+    id: uid(),
+    enabled: false,
+    type: "percent",
+    percent: 10,
+    action: "shutdown",
+    label: "Critical level",
+  },
+  {
+    id: uid(),
+    enabled: false,
+    type: "unplug",
+    action: "lock",
+    label: "Unplugged",
+  },
 ];
 
 export const useStore = create<AppState>()(
   persist(
     (set) => ({
-  view: 'dashboard',
-  isMinimized: false,
-  timers: [],
-  batteryRules: defaultBatteryRules,
-  history: [],
-  pendingActions: [],
-  showCreateTimer: false,
-  settings: defaultSettings,
-  battery: {
-    present: true,
-    level: 72,
-    charging: true,
-    plugged: true,
-    isLow: false,
-    isCritical: false,
-  },
-  clockMode: 'digital',
+      view: "dashboard",
+      isMinimized: false,
+      timers: [],
+      batteryRules: defaultBatteryRules,
+      history: [],
+      pendingActions: [],
+      showCreateTimer: false,
+      settings: defaultSettings,
+      battery: {
+        present: true,
+        level: 72,
+        charging: true,
+        plugged: true,
+        isLow: false,
+        isCritical: false,
+      },
+      clockMode: "digital",
 
-  setView: (view) => set({ view }),
-  setMinimized: (isMinimized) => set({ isMinimized }),
-  setClockMode: (clockMode) => set({ clockMode }),
-  setShowCreateTimer: (showCreateTimer) => set({ showCreateTimer }),
+      setView: (view) => set({ view }),
+      setMinimized: (isMinimized) => set({ isMinimized }),
+      setClockMode: (clockMode) => set({ clockMode }),
+      setShowCreateTimer: (showCreateTimer) => set({ showCreateTimer }),
 
-  addTimer: (t) => set((s) => ({
-    timers: [...s.timers, {
-      ...t,
-      id: uid(),
-      createdAt: Date.now(),
-      remaining: t.duration,
-      status: 'running',
-    }],
-  })),
+      addTimer: (t) =>
+        set((s) => ({
+          timers: [
+            ...s.timers,
+            {
+              ...t,
+              id: uid(),
+              createdAt: Date.now(),
+              remaining: t.duration,
+              status: "running",
+            },
+          ],
+        })),
 
-  updateTimer: (id, patch) => set((s) => ({
-    timers: s.timers.map(t => t.id === id ? { ...t, ...patch } : t),
-  })),
+      updateTimer: (id, patch) =>
+        set((s) => ({
+          timers: s.timers.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+        })),
 
-  removeTimer: (id) => set((s) => ({
-    timers: s.timers.filter(t => t.id !== id),
-    pendingActions: s.pendingActions.filter(a => a.timerId !== id),
-  })),
+      removeTimer: (id) =>
+        set((s) => ({
+          timers: s.timers.filter((t) => t.id !== id),
+          pendingActions: s.pendingActions.filter((a) => a.timerId !== id),
+        })),
 
-  toggleTimer: (id) => set((s) => ({
-    timers: s.timers.map(t => {
-      if (t.id !== id) return t;
-      if (t.status === 'running') return { ...t, status: 'paused' };
-      if (t.status === 'paused') return { ...t, status: 'running' };
-      return t;
-    }),
-  })),
+      toggleTimer: (id) =>
+        set((s) => ({
+          timers: s.timers.map((t) => {
+            if (t.id !== id) return t;
+            if (t.status === "running") return { ...t, status: "paused" };
+            if (t.status === "paused") return { ...t, status: "running" };
+            return t;
+          }),
+        })),
 
-  tickTimers: () => {
-    set((s) => {
-      const now = Date.now();
-      const pendingActions = [...s.pendingActions];
+      tickTimers: () => {
+        set((s) => {
+          const now = Date.now();
+          const pendingActions = [...s.pendingActions];
 
-      const timers = s.timers.map((t) => {
-        if (t.status !== 'running') return t;
+          const timers = s.timers.map((t) => {
+            if (t.status !== "running") return t;
 
-        const remaining = t.remaining - 1;
-        if (remaining > 0) return { ...t, remaining };
+            const remaining = t.remaining - 1;
+            if (remaining > 0) return { ...t, remaining };
 
-        const alreadyQueued = pendingActions.some(
-          (a) => a.source === 'timer' && a.timerId === t.id,
-        );
-        if (!alreadyQueued) {
-          pendingActions.push({
-            id: uid(),
-            source: 'timer',
-            action: t.action,
-            label: t.label,
-            createdAt: now,
-            timerId: t.id,
+            const alreadyQueued = pendingActions.some(
+              (a) => a.source === "timer" && a.timerId === t.id,
+            );
+            if (!alreadyQueued) {
+              pendingActions.push({
+                id: uid(),
+                source: "timer",
+                action: t.action,
+                label: t.label,
+                createdAt: now,
+                timerId: t.id,
+              });
+            }
+
+            if (t.repeat)
+              return { ...t, remaining: t.duration, warnedAt: undefined };
+            return {
+              ...t,
+              remaining: 0,
+              status: "expired" as TimerStatus,
+              firedAt: now,
+            };
           });
-        }
 
-        if (t.repeat) return { ...t, remaining: t.duration, warnedAt: undefined };
-        return { ...t, remaining: 0, status: 'expired' as TimerStatus, firedAt: now };
-      });
+          return { timers, pendingActions };
+        });
+      },
 
-      return { timers, pendingActions };
-    });
-  },
+      addBatteryRule: (r) =>
+        set((s) => ({
+          batteryRules: [...s.batteryRules, { ...r, id: uid() }],
+        })),
 
-  addBatteryRule: (r) => set((s) => ({
-    batteryRules: [...s.batteryRules, { ...r, id: uid() }],
-  })),
+      updateBatteryRule: (id, patch) =>
+        set((s) => ({
+          batteryRules: s.batteryRules.map((r) =>
+            r.id === id ? { ...r, ...patch } : r,
+          ),
+        })),
 
-  updateBatteryRule: (id, patch) => set((s) => ({
-    batteryRules: s.batteryRules.map(r => r.id === id ? { ...r, ...patch } : r),
-  })),
+      removeBatteryRule: (id) =>
+        set((s) => ({
+          batteryRules: s.batteryRules.filter((r) => r.id !== id),
+          pendingActions: s.pendingActions.filter((a) => a.ruleId !== id),
+        })),
 
-  removeBatteryRule: (id) => set((s) => ({
-    batteryRules: s.batteryRules.filter(r => r.id !== id),
-    pendingActions: s.pendingActions.filter(a => a.ruleId !== id),
-  })),
+      toggleBatteryRule: (id) =>
+        set((s) => ({
+          batteryRules: s.batteryRules.map((r) =>
+            r.id === id ? { ...r, enabled: !r.enabled } : r,
+          ),
+        })),
 
-  toggleBatteryRule: (id) => set((s) => ({
-    batteryRules: s.batteryRules.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r),
-  })),
+      addHistory: (h) =>
+        set((s) => ({
+          history: [{ ...h, id: uid() }, ...s.history].slice(0, 200),
+        })),
+      clearHistory: () => set({ history: [] }),
 
-  addHistory: (h) => set((s) => ({
-    history: [{ ...h, id: uid() }, ...s.history].slice(0, 200),
-  })),
-  clearHistory: () => set({ history: [] }),
+      enqueueAction: (a) =>
+        set((s) => {
+          const exists =
+            (a.timerId &&
+              s.pendingActions.some(
+                (p) => p.source === a.source && p.timerId === a.timerId,
+              )) ||
+            (a.ruleId &&
+              s.pendingActions.some(
+                (p) => p.source === a.source && p.ruleId === a.ruleId,
+              ));
+          if (exists) return s;
+          return {
+            pendingActions: [
+              ...s.pendingActions,
+              { ...a, id: uid(), createdAt: Date.now() },
+            ],
+          };
+        }),
+      dequeueAction: (id) =>
+        set((s) => ({
+          pendingActions: s.pendingActions.filter((a) => a.id !== id),
+        })),
 
-  enqueueAction: (a) => set((s) => {
-    const exists =
-      (a.timerId && s.pendingActions.some(p => p.source === a.source && p.timerId === a.timerId)) ||
-      (a.ruleId && s.pendingActions.some(p => p.source === a.source && p.ruleId === a.ruleId));
-    if (exists) return s;
-    return { pendingActions: [...s.pendingActions, { ...a, id: uid(), createdAt: Date.now() }] };
-  }),
-  dequeueAction: (id) => set((s) => ({
-    pendingActions: s.pendingActions.filter(a => a.id !== id),
-  })),
-
-  updateSettings: (patch) => set((s) => ({
-    settings: { ...s.settings, ...patch },
-  })),
+      updateSettings: (patch) =>
+        set((s) => ({
+          settings: { ...s.settings, ...patch },
+        })),
 
       setBattery: (battery) => set({ battery }),
     }),
     {
-      name: 'poh-timer:v1',
+      name: "PoHtimer:v1",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         view: s.view,
         timers: s.timers.map((t) =>
-          t.status === 'running' ? { ...t, status: 'paused' } : t,
+          t.status === "running" ? { ...t, status: "paused" } : t,
         ),
         batteryRules: s.batteryRules,
         history: s.history,
