@@ -1,5 +1,5 @@
-use tauri::{Emitter, Manager};
-use tauri::menu::{Menu, MenuItem};
+use tauri::{Emitter, Manager, Runtime};
+use tauri::menu::{IsMenuItem, Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use std::sync::{Mutex, OnceLock};
 
@@ -293,6 +293,48 @@ fn exit_app(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+const TRAY_ID: &str = "main";
+
+fn build_tray_menu<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    enabled_rules: u32,
+) -> Result<Menu<R>, String> {
+    let open = MenuItem::with_id(app, "open", "⊞ Open PoHtimer", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let new_timer =
+        MenuItem::with_id(app, "new_timer", "◷ New Timer", true, None::<&str>)
+            .map_err(|e| e.to_string())?;
+
+    let mut items: Vec<MenuItem<R>> = vec![open, new_timer];
+
+    if enabled_rules > 0 {
+        let label = format!("⚡ Battery Rules Enabled ({})", enabled_rules);
+        let battery_rules =
+            MenuItem::with_id(app, "battery_rules", label, true, None::<&str>)
+                .map_err(|e| e.to_string())?;
+        items.push(battery_rules);
+    }
+
+    let quit = MenuItem::with_id(app, "quit", "✕ Exit", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    items.push(quit);
+
+    let mut refs: Vec<&dyn IsMenuItem<R>> = Vec::new();
+    for item in &items {
+        refs.push(item);
+    }
+    Menu::with_items(app, &refs).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn update_tray_menu(app: tauri::AppHandle, enabled_rules: u32) -> Result<(), String> {
+    let tray = app
+        .tray_by_id(TRAY_ID)
+        .ok_or_else(|| "tray icon not found".to_string())?;
+    let menu = build_tray_menu(&app, enabled_rules)?;
+    tray.set_menu(Some(menu)).map_err(|e| e.to_string())
+}
+
 // ── Autostart ────────────────────────────────────────────────
 #[tauri::command]
 fn set_autostart(enabled: bool) -> Result<(), String> {
@@ -351,27 +393,33 @@ fn get_autostart_enabled() -> Result<bool, String> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let show = MenuItem::with_id(app, "show", "Open PoHtimer", true, None::<&str>)?;
-            let hide = MenuItem::with_id(app, "hide", "Hide to Tray", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
+            let menu = build_tray_menu(app.handle(), 0)?;
 
             let icon = app
                 .default_window_icon()
                 .cloned()
                 .ok_or_else(|| "missing tray icon".to_string())?;
 
-            TrayIconBuilder::new()
+            TrayIconBuilder::with_id(TRAY_ID)
                 .icon(icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
+                .tooltip("PoHtimer")
                 .on_menu_event(|app, event| match event.id().as_ref() {
-                    "show" => {
+                    "open" => {
                         let _ = show_main_window(app.clone());
                         let _ = app.emit("poh://restore-app", ());
+                        let _ = app.emit("poh://open-view", serde_json::json!({"view":"dashboard"}));
                     }
-                    "hide" => {
-                        let _ = hide_main_window(app.clone());
+                    "new_timer" => {
+                        let _ = show_main_window(app.clone());
+                        let _ = app.emit("poh://restore-app", ());
+                        let _ = app.emit("poh://open-view", serde_json::json!({"view":"timer","create":true}));
+                    }
+                    "battery_rules" => {
+                        let _ = show_main_window(app.clone());
+                        let _ = app.emit("poh://restore-app", ());
+                        let _ = app.emit("poh://open-view", serde_json::json!({"view":"battery"}));
                     }
                     "quit" => {
                         app.exit(0);
@@ -410,6 +458,7 @@ pub fn run() {
             window_close,
             send_notification,
             exit_app,
+            update_tray_menu,
             set_autostart,
             get_autostart_enabled,
         ])

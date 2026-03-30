@@ -466,8 +466,7 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 export const TimerView: React.FC = () => {
-  const { timers } = useStore();
-  const [showCreate, setShowCreate] = useState(false);
+  const { timers, showCreateTimer, setShowCreateTimer } = useStore();
 
   const active = timers.filter(
     (t) => t.status === "running" || t.status === "paused",
@@ -480,7 +479,7 @@ export const TimerView: React.FC = () => {
         title="Power Timers"
         subtitle="Schedule automated power actions"
         action={
-          <Btn variant="primary" onClick={() => setShowCreate(true)}>
+          <Btn variant="primary" onClick={() => setShowCreateTimer(true)}>
             + New Timer
           </Btn>
         }
@@ -492,7 +491,7 @@ export const TimerView: React.FC = () => {
           title="No timers yet"
           subtitle="Create a timer to schedule shutdown, restart, hibernate, and more"
           action={
-            <Btn variant="primary" onClick={() => setShowCreate(true)}>
+            <Btn variant="primary" onClick={() => setShowCreateTimer(true)}>
               + Create Timer
             </Btn>
           }
@@ -538,7 +537,9 @@ export const TimerView: React.FC = () => {
         </div>
       )}
 
-      {showCreate && <CreateTimerModal onClose={() => setShowCreate(false)} />}
+      {showCreateTimer && (
+        <CreateTimerModal onClose={() => setShowCreateTimer(false)} />
+      )}
     </div>
   );
 };

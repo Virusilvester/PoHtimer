@@ -52,6 +52,8 @@ const App: React.FC = () => {
     updateTimer,
     addHistory,
     updateSettings,
+    setView,
+    setShowCreateTimer,
   } = useStore();
 
   const prevBattery = useRef(battery);
@@ -129,9 +131,17 @@ const App: React.FC = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("__TAURI_INTERNALS__" in window)) return;
+    const enabledCount = batteryRules.filter((r) => r.enabled).length;
+    void TauriCommands.updateTrayMenu(enabledCount);
+  }, [batteryRules]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("__TAURI_INTERNALS__" in window)) return;
 
     let unlistenRestore: (() => void) | undefined;
     let unlistenClose: (() => void) | undefined;
+    let unlistenOpenView: (() => void) | undefined;
 
     void (async () => {
       const { listen } = await import("@tauri-apps/api/event");
@@ -141,13 +151,29 @@ const App: React.FC = () => {
       unlistenClose = await listen("poh://close-requested", () => {
         handleCloseRequest();
       });
+      unlistenOpenView = await listen<{ view?: string; create?: boolean }>(
+        "poh://open-view",
+        (event) => {
+          const view = event.payload?.view;
+          if (view) setView(view as any);
+          if (event.payload?.create) setShowCreateTimer(true);
+          setMinimized(false);
+        },
+      );
     })();
 
     return () => {
       if (unlistenRestore) unlistenRestore();
       if (unlistenClose) unlistenClose();
+      if (unlistenOpenView) unlistenOpenView();
     };
-  }, [setMinimized, settings.askBeforeClose, settings.closeAction]);
+  }, [
+    setMinimized,
+    setView,
+    setShowCreateTimer,
+    settings.askBeforeClose,
+    settings.closeAction,
+  ]);
 
   const hasEnabledBatteryRules = batteryRules.some((r) => r.enabled);
   const batteryPollMs = hasEnabledBatteryRules ? 10_000 : 30_000;

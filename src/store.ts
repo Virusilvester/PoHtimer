@@ -79,6 +79,7 @@ interface AppState {
   batteryRules: BatteryRule[];
   history: HistoryEntry[];
   pendingActions: ActionRequest[];
+  showCreateTimer: boolean;
   settings: Settings;
   battery: BatteryState;
   clockMode: ClockMode;
@@ -86,6 +87,7 @@ interface AppState {
   setView: (v: View) => void;
   setMinimized: (v: boolean) => void;
   setClockMode: (m: ClockMode) => void;
+  setShowCreateTimer: (v: boolean) => void;
 
   addTimer: (t: Omit<TimerEntry, 'id' | 'createdAt' | 'remaining' | 'status'>) => void;
   updateTimer: (id: string, patch: Partial<TimerEntry>) => void;
@@ -139,6 +141,7 @@ export const useStore = create<AppState>()(
   batteryRules: defaultBatteryRules,
   history: [],
   pendingActions: [],
+  showCreateTimer: false,
   settings: defaultSettings,
   battery: {
     present: true,
@@ -153,6 +156,7 @@ export const useStore = create<AppState>()(
   setView: (view) => set({ view }),
   setMinimized: (isMinimized) => set({ isMinimized }),
   setClockMode: (clockMode) => set({ clockMode }),
+  setShowCreateTimer: (showCreateTimer) => set({ showCreateTimer }),
 
   addTimer: (t) => set((s) => ({
     timers: [...s.timers, {

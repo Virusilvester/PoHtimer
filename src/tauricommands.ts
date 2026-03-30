@@ -99,6 +99,10 @@ export const TauriCommands = {
     return invokeCommand("exit_app");
   },
 
+  async updateTrayMenu(enabledRules: number) {
+    return invokeCommand("update_tray_menu", { enabledRules });
+  },
+
   async setAutostart(enabled: boolean) {
     return invokeCommand("set_autostart", { enabled });
   },
