@@ -1,0 +1,11 @@
+{
+  "routes": [
+    {
+      "src": "/latest.json",
+      "headers": {
+        "Cache-Control": "no-cache"
+      },
+      "dest": "/latest.json"
+    }
+  ]
+}
