@@ -18,7 +18,7 @@ fn spawn_cmd(program: &str, args: &[&str]) -> Result<(), String> {
 fn shutdown_system() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        return spawn_cmd("shutdown", &["/s", "/t", "0"]);
+        spawn_cmd("shutdown", &["/s", "/t", "0"])
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -29,7 +29,7 @@ fn shutdown_system() -> Result<(), String> {
 fn restart_system() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        return spawn_cmd("shutdown", &["/r", "/t", "0"]);
+        spawn_cmd("shutdown", &["/r", "/t", "0"])
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -40,7 +40,7 @@ fn restart_system() -> Result<(), String> {
 fn hibernate_system() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        return spawn_cmd("shutdown", &["/h"]);
+        spawn_cmd("shutdown", &["/h"])
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -51,7 +51,7 @@ fn hibernate_system() -> Result<(), String> {
 fn sleep_system() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        return spawn_cmd("rundll32.exe", &["powrprof.dll,SetSuspendState", "0,1,0"]);
+        spawn_cmd("rundll32.exe", &["powrprof.dll,SetSuspendState", "0,1,0"])
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -62,7 +62,7 @@ fn sleep_system() -> Result<(), String> {
 fn lock_screen() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        return spawn_cmd("rundll32.exe", &["user32.dll,LockWorkStation"]);
+        spawn_cmd("rundll32.exe", &["user32.dll,LockWorkStation"])
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -73,7 +73,7 @@ fn lock_screen() -> Result<(), String> {
 fn logoff_user() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        return spawn_cmd("shutdown", &["/l"]);
+        spawn_cmd("shutdown", &["/l"])
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -473,7 +473,7 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
             let _ = key.delete_value(VALUE_NAME);
         }
 
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -495,7 +495,7 @@ fn get_autostart_enabled() -> Result<bool, String> {
             return Ok(false);
         };
         let val: Result<String, _> = key.get_value(VALUE_NAME);
-        return Ok(val.is_ok());
+        Ok(val.is_ok())
     }
 
     #[cfg(not(target_os = "windows"))]
