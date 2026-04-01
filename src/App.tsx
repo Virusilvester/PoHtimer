@@ -108,6 +108,11 @@ const App: React.FC = () => {
       autostartInitialized.current = true;
       lastAutostart.current = s.settings.autostart;
 
+      void TauriCommands.closeSplashscreen();
+      if (!s.settings.startMinimized) {
+        void TauriCommands.showMainWindow();
+      }
+
       void (async () => {
         const enabled = await TauriCommands.getAutostartEnabled().catch(() => null);
         if (enabled == null) return;
@@ -130,11 +135,17 @@ const App: React.FC = () => {
   }, [settings.autostart, updateSettings]);
 
   useEffect(() => {
+    const id = window.setTimeout(() => {
+      void TauriCommands.closeSplashscreen();
+    }, 200);
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
     window.addEventListener("contextmenu", handleContextMenu);
-    return () => window.removeEventListener("contextmenu", handleContextMenu);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
   }, []);
 
   useEffect(() => {

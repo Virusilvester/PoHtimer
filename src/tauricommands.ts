@@ -2,7 +2,10 @@
 // In production these call actual Tauri backend; in browser they simulate
 
 const isTauri = () =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  typeof window !== "undefined" &&
+  ((window as any).__TAURI_INTERNALS__ ||
+    (window as any).__TAURI__ ||
+    (window as any).__TAURI_METADATA__);
 
 async function invokeCommand<T>(
   cmd: string,
@@ -93,6 +96,14 @@ export const TauriCommands = {
 
   async windowClose() {
     return invokeCommand("window_close");
+  },
+
+  async showMainWindow() {
+    return invokeCommand("show_main_window");
+  },
+
+  async closeSplashscreen() {
+    return invokeCommand("close_splashscreen");
   },
 
   async startDragging() {

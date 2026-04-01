@@ -3,6 +3,7 @@ use tauri::window::Color;
 use tauri::menu::{IsMenuItem, Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 fn spawn_cmd(program: &str, args: &[&str]) -> Result<(), String> {
     std::process::Command::new(program)
@@ -163,7 +164,12 @@ struct SystemInfo {
 
 fn system() -> &'static Mutex<sysinfo::System> {
     static SYS: OnceLock<Mutex<sysinfo::System>> = OnceLock::new();
-    SYS.get_or_init(|| Mutex::new(sysinfo::System::new()))
+    SYS.get_or_init(|| {
+        let refresh = sysinfo::RefreshKind::nothing()
+            .with_memory(sysinfo::MemoryRefreshKind::everything())
+            .with_cpu(sysinfo::CpuRefreshKind::nothing().with_cpu_usage());
+        Mutex::new(sysinfo::System::new_with_specifics(refresh))
+    })
 }
 
 #[tauri::command]
@@ -338,6 +344,17 @@ fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
     let win = main_window(&app)?;
     win.show().map_err(|e| e.to_string())?;
     win.set_focus().map_err(|e| e.to_string())?;
+    if let Some(splash) = app.get_webview_window("splashscreen") {
+        let _ = splash.close();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("splashscreen") {
+        let _ = win.close();
+    }
     Ok(())
 }
 
@@ -527,6 +544,20 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(800));
+                if let Some(main) = app_handle.get_webview_window("main") {
+                    if !main.is_visible().unwrap_or(true) {
+                        let _ = main.show();
+                    }
+                    let _ = main.set_focus();
+                }
+                if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+                    let _ = splash.close();
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -544,6 +575,7 @@ pub fn run() {
             window_minimize,
             start_dragging,
             show_main_window,
+            close_splashscreen,
             hide_main_window,
             window_toggle_maximize,
             window_close,
@@ -555,6 +587,9 @@ pub fn run() {
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() != "main" {
+                    return;
+                }
                 api.prevent_close();
                 let _ = window.emit("poh://close-requested", ());
             }

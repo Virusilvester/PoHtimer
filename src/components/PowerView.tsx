@@ -241,8 +241,10 @@ export const PowerView: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     let inFlight = false;
+    let intervalId: number | null = null;
 
     const refresh = async () => {
+      if (document.hidden) return;
       if (inFlight) return;
       inFlight = true;
       try {
@@ -260,11 +262,32 @@ export const PowerView: React.FC = () => {
       }
     };
 
-    refresh();
-    const id = window.setInterval(refresh, 2000);
+    const start = () => {
+      refresh();
+      intervalId = window.setInterval(refresh, 10000);
+    };
+
+    const stop = () => {
+      if (intervalId != null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else if (intervalId == null) {
+        start();
+      }
+    };
+
+    start();
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
