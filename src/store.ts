@@ -81,8 +81,8 @@ export interface Settings {
   theme: "dark" | "midnight" | "amber";
   accentColor: string;
   minimizeMode: "digital" | "analog";
-  digitalWatchStyle: "minimal" | "glass" | "panel";
-  analogWatchStyle: "classic" | "neon" | "minimal";
+  digitalWatchStyle: "minimal" | "glass" | "panel" | "edge";
+  analogWatchStyle: "classic" | "neon" | "minimal" | "halo";
   clockSize: number;
   clockPosition: { x: number; y: number };
   notifyBeforeSeconds: number;

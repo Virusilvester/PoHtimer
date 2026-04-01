@@ -41,6 +41,14 @@ export const DigitalOverlay: React.FC<OverlayProps> = ({ size }) => {
           boxShadow: "none",
           padding: 6 * scale,
         }
+      : style === "edge"
+        ? {
+            background: "rgba(8,10,14,0.88)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            boxShadow:
+              "0 0 0 1px rgba(255,185,0,0.12), 0 14px 30px rgba(0,0,0,0.65)",
+            padding: 12 * scale,
+          }
       : style === "panel"
         ? {
             background: "rgba(14,18,26,0.9)",

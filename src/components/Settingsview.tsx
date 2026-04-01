@@ -196,7 +196,7 @@ export const SettingsView: React.FC = () => {
           description="Choose a digital overlay theme"
           control={
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(["minimal", "glass", "panel"] as const).map((v) => (
+              {(["minimal", "glass", "panel", "edge"] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => updateSettings({ digitalWatchStyle: v })}
@@ -228,7 +228,7 @@ export const SettingsView: React.FC = () => {
           description="Choose an analog overlay theme"
           control={
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(["classic", "neon", "minimal"] as const).map((v) => (
+              {(["classic", "neon", "minimal", "halo"] as const).map((v) => (
                 <button
                   key={v}
                   onClick={() => updateSettings({ analogWatchStyle: v })}

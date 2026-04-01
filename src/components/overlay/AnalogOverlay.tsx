@@ -112,29 +112,16 @@ export const AnalogOverlay: React.FC<OverlayProps> = ({ size }) => {
 
       <svg width={size} height={size}>
         {/* Background */}
-        <circle
-          cx={cx}
-          cy={cx}
-          r={r}
-          fill={
-            style === "minimal" ? "rgba(10,12,16,0.35)" : "rgba(10,12,16,0.85)"
-          }
-        />
-        {style !== "minimal" && (
-          <circle
-            cx={cx}
-            cy={cx}
-            r={r}
-            fill="none"
-            stroke={
-              style === "neon" ? "var(--accent-strong)" : "var(--border-accent)"
-            }
-            strokeWidth={style === "neon" ? 2.2 : 1.5}
-          />
-        )}
-
-        {/* Backdrop blur effect via filter */}
         <defs>
+          <linearGradient id="halo-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="rgba(255,185,0,0.2)" />
+            <stop offset="45%" stopColor="rgba(59,158,255,0.5)" />
+            <stop offset="100%" stopColor="rgba(0,217,126,0.35)" />
+          </linearGradient>
+          <radialGradient id="halo-fill" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="rgba(18,22,30,0.9)" />
+            <stop offset="100%" stopColor="rgba(8,10,14,0.7)" />
+          </radialGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="2" result="coloredBlur" />
             <feMerge>
@@ -144,12 +131,47 @@ export const AnalogOverlay: React.FC<OverlayProps> = ({ size }) => {
           </filter>
         </defs>
 
+        <circle
+          cx={cx}
+          cy={cx}
+          r={r}
+          fill={
+            style === "minimal"
+              ? "rgba(10,12,16,0.35)"
+              : style === "halo"
+                ? "url(#halo-fill)"
+                : "rgba(10,12,16,0.85)"
+          }
+        />
+        {style !== "minimal" && (
+          <circle
+            cx={cx}
+            cy={cx}
+            r={r}
+            fill="none"
+            stroke={
+              style === "neon"
+                ? "var(--accent-strong)"
+                : style === "halo"
+                  ? "url(#halo-ring)"
+                  : "var(--border-accent)"
+            }
+            strokeWidth={style === "neon" ? 2.2 : style === "halo" ? 2 : 1.5}
+          />
+        )}
+
         {/* Timer arc */}
         {activeTimer && timerAngle > 0 && style !== "minimal" && (
           <path
             d={`M ${timerStart.x} ${timerStart.y} A ${timerR} ${timerR} 0 ${largeArc} 1 ${timerEnd.x} ${timerEnd.y}`}
             fill="none"
-            stroke={activeTimer.remaining <= 60 ? "#ff8c00" : "var(--accent)"}
+            stroke={
+              activeTimer.remaining <= 60
+                ? "#ff8c00"
+                : style === "halo"
+                  ? "rgba(255,185,0,0.85)"
+                  : "var(--accent)"
+            }
             strokeWidth={3}
             strokeLinecap="round"
           />
@@ -172,6 +194,8 @@ export const AnalogOverlay: React.FC<OverlayProps> = ({ size }) => {
                   i === 0 || i % 3 === 0
                     ? style === "neon"
                       ? "var(--accent)"
+                      : style === "halo"
+                        ? "rgba(240,242,245,0.6)"
                       : "var(--accent-strong)"
                     : "rgba(255,255,255,0.15)"
                 }
