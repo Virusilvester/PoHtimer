@@ -202,11 +202,9 @@ fn main_window(app: &tauri::AppHandle) -> Result<tauri::WebviewWindow, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn apply_overlay_region(win: &tauri::WebviewWindow, mode: &str, width: u32, height: u32) {
+fn apply_overlay_region(win: &tauri::WebviewWindow) {
     use windows_sys::Win32::Foundation::HWND as SYS_HWND;
-    use windows_sys::Win32::Graphics::Gdi::{
-        CreateEllipticRgn, CreateRoundRectRgn, DeleteObject, SetWindowRgn,
-    };
+    use windows_sys::Win32::Graphics::Gdi::SetWindowRgn;
 
     if let Ok(hwnd) = win.hwnd() {
         let hwnd = hwnd.0 as isize;
@@ -241,7 +239,7 @@ fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result
 
     #[cfg(target_os = "windows")]
     {
-        apply_overlay_region(&win, &mode, width, height);
+        apply_overlay_region(&win);
     }
 
     Ok(())
@@ -272,7 +270,7 @@ fn set_overlay_bounds(
 
     #[cfg(target_os = "windows")]
     {
-        apply_overlay_region(&win, &mode, width, height);
+        apply_overlay_region(&win);
     }
 
     Ok(())
