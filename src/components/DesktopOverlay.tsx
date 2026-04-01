@@ -552,6 +552,22 @@ export const DesktopOverlay: React.FC = () => {
   const hasActiveTimer = timers.some((t) => t.status === "running");
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prevHtml = document.documentElement.style.background;
+    const prevBody = document.body.style.background;
+    const rootEl = document.getElementById("root");
+    const prevRoot = rootEl?.style.background ?? "";
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+    if (rootEl) rootEl.style.background = "transparent";
+    return () => {
+      document.documentElement.style.background = prevHtml;
+      document.body.style.background = prevBody;
+      if (rootEl) rootEl.style.background = prevRoot;
+    };
+  }, []);
+
+  useEffect(() => {
     const mode = settings.minimizeMode;
     const width = size;
     const height =
