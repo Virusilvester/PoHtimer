@@ -84,30 +84,6 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         setShowMenu(!showMenu);
       }}
     >
-      {style !== "minimal" && (
-        <div
-          data-tauri-drag-region
-          style={{
-            height: 12 * scale,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 6 * scale,
-            cursor: "grab",
-          }}
-        >
-          <div
-            style={{
-              width: 38 * scale,
-              height: 3 * scale,
-              borderRadius: 999,
-              background: "rgba(240,242,245,0.14)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          />
-        </div>
-      )}
-
       {/* Time */}
       <div
         style={{

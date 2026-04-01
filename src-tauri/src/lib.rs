@@ -211,20 +211,7 @@ fn apply_overlay_region(win: &tauri::WebviewWindow, mode: &str, width: u32, heig
     if let Ok(hwnd) = win.hwnd() {
         let hwnd = hwnd.0 as isize;
         unsafe {
-            if mode == "digital" {
-                let mut radius = ((width as f32) * 0.1).round() as i32;
-                radius = radius.clamp(8, 80);
-                let hrgn =
-                    CreateRoundRectRgn(0, 0, width as i32, height as i32, radius, radius);
-                if !hrgn.is_null() {
-                    let res = SetWindowRgn(hwnd as SYS_HWND, hrgn, 1);
-                    if res == 0 {
-                        let _ = DeleteObject(hrgn as _);
-                    }
-                }
-            } else {
-                let _ = SetWindowRgn(hwnd as SYS_HWND, std::ptr::null_mut(), 1);
-            }
+            let _ = SetWindowRgn(hwnd as SYS_HWND, std::ptr::null_mut(), 1);
         }
     }
 }
