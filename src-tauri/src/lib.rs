@@ -1,9 +1,9 @@
-use tauri::{Emitter, Manager, Runtime};
-use tauri::window::Color;
-use tauri::menu::{IsMenuItem, Menu, MenuItem};
-use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
+use tauri::menu::{IsMenuItem, Menu, MenuItem};
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri::window::Color;
+use tauri::{Emitter, Manager, Runtime};
 
 fn spawn_cmd(program: &str, args: &[&str]) -> Result<(), String> {
     std::process::Command::new(program)
@@ -287,8 +287,8 @@ fn restore_from_overlay(app: tauri::AppHandle) -> Result<(), String> {
     let _ = win.set_skip_taskbar(false);
     #[cfg(target_os = "windows")]
     {
-        use windows_sys::Win32::Graphics::Gdi::SetWindowRgn;
         use windows_sys::Win32::Foundation::HWND as SYS_HWND;
+        use windows_sys::Win32::Graphics::Gdi::SetWindowRgn;
         if let Ok(hwnd) = win.hwnd() {
             let hwnd = hwnd.0 as isize;
             unsafe {
@@ -313,7 +313,9 @@ fn window_minimize(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn start_dragging(app: tauri::AppHandle) -> Result<(), String> {
-    main_window(&app)?.start_dragging().map_err(|e| e.to_string())
+    main_window(&app)?
+        .start_dragging()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -415,22 +417,20 @@ fn build_tray_menu<R: Runtime>(
 ) -> Result<Menu<R>, String> {
     let open = MenuItem::with_id(app, "open", "⊞ Open PoHtimer", true, None::<&str>)
         .map_err(|e| e.to_string())?;
-    let new_timer =
-        MenuItem::with_id(app, "new_timer", "◷ New Timer", true, None::<&str>)
-            .map_err(|e| e.to_string())?;
+    let new_timer = MenuItem::with_id(app, "new_timer", "◷ New Timer", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
 
     let mut items: Vec<MenuItem<R>> = vec![open, new_timer];
 
     if enabled_rules > 0 {
         let label = format!("⚡ Battery Rules Enabled ({})", enabled_rules);
-        let battery_rules =
-            MenuItem::with_id(app, "battery_rules", label, true, None::<&str>)
-                .map_err(|e| e.to_string())?;
+        let battery_rules = MenuItem::with_id(app, "battery_rules", label, true, None::<&str>)
+            .map_err(|e| e.to_string())?;
         items.push(battery_rules);
     }
 
-    let quit = MenuItem::with_id(app, "quit", "✕ Exit", true, None::<&str>)
-        .map_err(|e| e.to_string())?;
+    let quit =
+        MenuItem::with_id(app, "quit", "✕ Exit", true, None::<&str>).map_err(|e| e.to_string())?;
     items.push(quit);
 
     let mut refs: Vec<&dyn IsMenuItem<R>> = Vec::new();
@@ -523,12 +523,16 @@ pub fn run() {
                     "open" => {
                         let _ = show_main_window(app.clone());
                         let _ = app.emit("poh://restore-app", ());
-                        let _ = app.emit("poh://open-view", serde_json::json!({"view":"dashboard"}));
+                        let _ =
+                            app.emit("poh://open-view", serde_json::json!({"view":"dashboard"}));
                     }
                     "new_timer" => {
                         let _ = show_main_window(app.clone());
                         let _ = app.emit("poh://restore-app", ());
-                        let _ = app.emit("poh://open-view", serde_json::json!({"view":"timer","create":true}));
+                        let _ = app.emit(
+                            "poh://open-view",
+                            serde_json::json!({"view":"timer","create":true}),
+                        );
                     }
                     "battery_rules" => {
                         let _ = show_main_window(app.clone());
@@ -553,7 +557,7 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(3500));
+                std::thread::sleep(Duration::from_millis(3500));
                 if let Some(main) = app_handle.get_webview_window("main") {
                     if !main.is_visible().unwrap_or(true) {
                         let _ = main.show();

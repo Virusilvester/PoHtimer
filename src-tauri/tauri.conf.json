@@ -38,6 +38,15 @@
     ],
     "security": {
       "csp": "default-src 'self'; img-src 'self' asset: data: blob:; font-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws: wss:;"
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://pohtimer.vercel.app/latest.json",
+        "https://github.com/Virusilvester/pohtimer/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlCRTA0NTkzMTU0NUU1MEIKUldRTDVVVVZrMFhnbXlWa1pVOHJYbG0yRGdzaEUxWVdoTS94TlFNZ3htZlhBSnZyRHoralVLL08K"
     }
   },
   "bundle": {

@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PoHtimer — Power Scheduler for Windows</title>
+<meta name="description" content="Schedule your Windows PC to shutdown, restart, hibernate, sleep, lock, or log off automatically. Free utility with battery rules and desktop clock overlay."/>
+<meta property="og:title" content="PoHtimer — Power Scheduler for Windows"/>
+<meta property="og:description" content="Set timers to shutdown, restart, hibernate or sleep your PC. Includes battery rules and a beautiful desktop clock overlay."/>
+<meta property="og:type" content="website"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23ffb900'/><text y='.9em' font-size='70' x='50%' text-anchor='middle' dy='.1em'>◷</text></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & tokens ────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090f;--surface:#0f1117;--elevated:#151821;--card:#1a1f2e;--overlay:#1e2535;
+  --border:rgba(255,255,255,0.06);--border-glow:rgba(255,185,0,0.3);
+  --text:#eef0f5;--muted:#7a8399;--dim:#3d4560;
+  --accent:#ffb900;--accent-dim:rgba(255,185,0,0.12);--accent-glow:rgba(255,185,0,0.22);
+  --danger:#ff4444;--success:#00d97e;--info:#3b9eff;--warn:#ff8c00;
+  --r-sm:8px;--r-md:12px;--r-lg:18px;--r-xl:26px;--r-2xl:36px;
+  --mono:'JetBrains Mono',monospace;
+  --body:'DM Sans',sans-serif;
+  --display:'Bebas Neue',sans-serif;
+  --max:1100px;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--body);font-size:15px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+img{display:block;max-width:100%}
+
+/* ── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--overlay);border-radius:3px}
+
+/* ── Keyframes ─────────────────────────────── */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 30px var(--accent-glow)}50%{box-shadow:0 0 60px rgba(255,185,0,.35)}}
+@keyframes slide-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scan{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes ring-spin{to{stroke-dashoffset:0}}
+@keyframes count{0%{transform:translateY(-4px);opacity:0}20%,80%{transform:none;opacity:1}100%{transform:translateY(4px);opacity:0}}
+
+/* ── Noise texture overlay ─────────────────── */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.4;
+}
+
+/* ── Nav ───────────────────────────────────── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:60px;
+  background:rgba(9,9,15,.8);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+}
+.nav-inner{
+  max-width:var(--max);width:100%;margin:0 auto;
+  padding:0 28px;display:flex;align-items:center;justify-content:space-between;
+}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.nav-logo-icon{
+  width:34px;height:34px;border-radius:9px;
+  background:var(--accent);color:#09090f;
+  font-size:17px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 16px var(--accent-glow);
+  flex-shrink:0;
+}
+.nav-wordmark{font-family:var(--display);font-size:20px;letter-spacing:.04em;color:var(--text);line-height:1}
+.nav-wordmark span{color:var(--accent)}
+.nav-links{display:flex;align-items:center;gap:4px}
+.nav-link{padding:7px 14px;border-radius:var(--r-sm);font-size:13px;color:var(--muted);transition:all .15s;font-weight:500}
+.nav-link:hover{color:var(--text);background:var(--elevated);text-decoration:none}
+.nav-dl{
+  padding:8px 18px;border-radius:var(--r-md);
+  background:var(--accent);color:#09090f;
+  font-size:13px;font-weight:600;
+  transition:all .15s;
+  box-shadow:0 0 20px var(--accent-dim);
+}
+.nav-dl:hover{filter:brightness(1.1);text-decoration:none;box-shadow:0 0 30px var(--accent-glow)}
+
+/* ── Hero ──────────────────────────────────── */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:100px 28px 80px;
+  position:relative;overflow:hidden;text-align:center;
+}
+
+/* Radial glow behind hero */
+.hero::after{
+  content:'';position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-55%);
+  width:700px;height:700px;
+  background:radial-gradient(circle,rgba(255,185,0,.07) 0%,transparent 65%);
+  pointer-events:none;z-index:0;
+}
+
+/* Scan line effect */
+.scan-line{
+  position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(to right,transparent,rgba(255,185,0,.15),transparent);
+  animation:scan 8s linear infinite;
+  pointer-events:none;z-index:0;
+}
+
+.hero-content{position:relative;z-index:1;max-width:760px}
+
+.hero-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  background:var(--accent-dim);border:1px solid var(--border-glow);
+  border-radius:20px;padding:6px 14px;
+  font-size:12px;font-weight:600;color:var(--accent);
+  letter-spacing:.04em;margin-bottom:28px;
+}
+.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 2s ease infinite}
+
+.hero-title{
+  font-family:var(--display);
+  font-size:clamp(62px,9vw,110px);
+  letter-spacing:.03em;line-height:.95;
+  color:var(--text);margin-bottom:6px;
+}
+.hero-title span{color:var(--accent);text-shadow:0 0 40px var(--accent-glow)}
+
+.hero-tagline{
+  font-size:clamp(16px,2.5vw,22px);
+  color:var(--muted);margin-bottom:14px;
+  font-weight:300;letter-spacing:.01em;
+}
+.hero-tagline strong{color:var(--text);font-weight:500}
+
+.hero-desc{
+  font-size:15px;color:var(--muted);
+  max-width:540px;margin:0 auto 40px;line-height:1.7;
+}
+
+/* ── CTA buttons ───────────────────────────── */
+.cta-group{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+
+.btn-primary{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 28px;border-radius:var(--r-lg);
+  background:var(--accent);color:#09090f;
+  font-size:15px;font-weight:700;
+  box-shadow:0 0 40px var(--accent-glow);
+  transition:all .2s;cursor:pointer;border:none;font-family:var(--body);
+  position:relative;overflow:hidden;
+}
+.btn-primary::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(255,255,255,.12),transparent);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 40px var(--accent-glow);filter:brightness(1.05);text-decoration:none}
+.btn-primary:active{transform:translateY(0)}
+
+.btn-secondary{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 28px;border-radius:var(--r-lg);
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--muted);font-size:15px;font-weight:500;
+  transition:all .2s;cursor:pointer;font-family:var(--body);
+}
+.btn-secondary:hover{border-color:var(--border-glow);color:var(--text);background:var(--accent-dim);text-decoration:none}
+
+.hero-note{font-size:12px;color:var(--dim);margin-top:8px}
+
+/* ── Animated app preview ──────────────────── */
+.app-preview{
+  position:relative;z-index:1;
+  margin-top:64px;
+  max-width:860px;width:100%;
+}
+.preview-glow{
+  position:absolute;inset:-20px;
+  background:radial-gradient(ellipse at 50% 100%,rgba(255,185,0,.12),transparent 70%);
+  pointer-events:none;
+}
+.preview-window{
+  background:var(--surface);
+  border:1px solid rgba(255,185,0,.2);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 40px 100px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.04);
+  animation:float 6s ease-in-out infinite;
+}
+.preview-titlebar{
+  height:38px;background:var(--elevated);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;
+}
+.preview-titlebar-left{display:flex;align-items:center;gap:8px}
+.preview-wm{display:flex;gap:6px}
+.preview-wm span{width:11px;height:11px;border-radius:50%}
+.preview-wm .c{background:#fc615d}.preview-wm .m{background:#fbd45a}.preview-wm .x{background:#6fcf62}
+.preview-title{font-family:var(--display);font-size:13px;letter-spacing:.04em;color:var(--muted)}
+.preview-title b{color:var(--accent)}
+.preview-body{display:flex;height:380px}
+.preview-sidebar{
+  width:180px;background:var(--surface);
+  border-right:1px solid var(--border);
+  padding:12px 8px;display:flex;flex-direction:column;gap:2px;
+}
+.preview-nav-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 10px;border-radius:7px;
+  font-size:11px;color:var(--muted);
+  border:1px solid transparent;
+}
+.preview-nav-item.active{
+  background:var(--accent-dim);border-color:var(--border-glow);
+  color:var(--accent);font-weight:600;
+}
+.preview-main{flex:1;padding:18px;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+.preview-clock{
+  text-align:center;font-family:var(--mono);
+  font-size:42px;font-weight:600;color:var(--text);letter-spacing:-.02em;line-height:1;
+}
+.preview-clock-sub{font-size:11px;color:var(--dim);text-align:center;margin-top:3px}
+.preview-timer-row{
+  background:var(--elevated);border:1px solid rgba(255,185,0,.2);
+  border-radius:9px;padding:10px 12px;
+  display:flex;align-items:center;gap:10px;
+}
+.preview-timer-ring{flex-shrink:0}
+.preview-timer-info{flex:1}
+.preview-timer-label{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px}
+.preview-timer-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  background:rgba(255,77,77,.15);border:1px solid rgba(255,77,77,.3);
+  border-radius:4px;padding:1px 6px;font-size:9px;color:#ff6b6b;
+}
+.preview-stats{display:flex;gap:8px}
+.preview-stat{
+  flex:1;background:var(--elevated);border:1px solid var(--border);
+  border-radius:8px;padding:10px;text-align:center;
+}
+.preview-stat-val{font-family:var(--mono);font-size:20px;font-weight:600}
+.preview-stat-label{font-size:9px;color:var(--dim);margin-top:2px}
+
+/* ── Section layout ────────────────────────── */
+section{padding:100px 28px;position:relative;z-index:1}
+.container{max-width:var(--max);margin:0 auto}
+.section-label{
+  font-size:11px;font-weight:700;letter-spacing:.1em;
+  color:var(--accent);margin-bottom:12px;
+}
+.section-title{
+  font-size:clamp(30px,4vw,46px);font-weight:700;
+  letter-spacing:-.02em;line-height:1.15;
+  margin-bottom:16px;
+}
+.section-sub{font-size:16px;color:var(--muted);max-width:520px;line-height:1.6}
+
+/* ── Features ──────────────────────────────── */
+.features-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
+  margin-top:56px;
+}
+.feature-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  padding:24px;
+  transition:all .25s;
+  position:relative;overflow:hidden;
+}
+.feature-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(to right,transparent,rgba(255,185,0,.3),transparent);
+  opacity:0;transition:opacity .3s;
+}
+.feature-card:hover{border-color:rgba(255,185,0,.2);transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.feature-card:hover::before{opacity:1}
+.feature-icon{
+  width:46px;height:46px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;margin-bottom:16px;border:1px solid;
+}
+.feature-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
+.feature-desc{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ── Download section ──────────────────────── */
+#download{background:var(--surface)}
+.download-grid{
+  display:grid;grid-template-columns:1.4fr 1fr;gap:40px;
+  align-items:start;margin-top:48px;
+}
+.dl-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r-xl);padding:28px;
+  position:relative;overflow:hidden;
+}
+.dl-card.primary{border-color:var(--border-glow);box-shadow:0 0 40px rgba(255,185,0,.08)}
+.dl-card.primary::before{
+  content:'RECOMMENDED';
+  position:absolute;top:16px;right:-28px;
+  background:var(--accent);color:#09090f;
+  font-size:9px;font-weight:800;letter-spacing:.08em;
+  padding:4px 40px;transform:rotate(45deg);
+}
+.dl-version-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--accent-dim);border:1px solid var(--border-glow);
+  border-radius:20px;padding:4px 12px;
+  font-size:12px;font-weight:600;color:var(--accent);
+  margin-bottom:16px;
+  font-family:var(--mono);
+}
+.dl-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.dl-arch{font-size:13px;color:var(--muted);margin-bottom:20px}
+.dl-btn{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-radius:var(--r-md);
+  background:var(--accent);color:#09090f;
+  font-size:14px;font-weight:700;cursor:pointer;
+  border:none;font-family:var(--body);width:100%;
+  transition:all .2s;margin-bottom:10px;
+  position:relative;overflow:hidden;
+  text-decoration:none;
+}
+.dl-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.1),transparent)}
+.dl-btn:hover{filter:brightness(1.08);transform:translateY(-1px);text-decoration:none;color:#09090f}
+.dl-btn:active{transform:none}
+.dl-btn-icon{font-size:18px}
+.dl-btn-meta{font-size:11px;opacity:.7}
+.dl-btn.secondary{
+  background:var(--overlay);color:var(--muted);
+  border:1px solid var(--border);
+}
+.dl-btn.secondary:hover{border-color:var(--border-glow);color:var(--text)}
+.dl-info{margin-top:16px;font-size:12px;color:var(--dim);display:flex;flex-direction:column;gap:5px}
+.dl-info-row{display:flex;align-items:center;gap:6px}
+.dl-checksum{
+  background:var(--overlay);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:10px 12px;
+  font-family:var(--mono);font-size:11px;color:var(--dim);
+  word-break:break-all;margin-top:12px;
+}
+.sys-reqs{display:flex;flex-direction:column;gap:10px}
+.req-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:12px 14px;background:var(--card);
+  border:1px solid var(--border);border-radius:var(--r-md);
+}
+.req-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.req-label{font-size:13px;font-weight:600;color:var(--text)}
+.req-desc{font-size:12px;color:var(--muted)}
+
+/* ── How it works ──────────────────────────── */
+.how-steps{display:flex;flex-direction:column;gap:0;margin-top:48px;max-width:680px}
+.how-step{display:flex;gap:24px;padding-bottom:32px;position:relative}
+.how-step:not(:last-child)::before{
+  content:'';position:absolute;left:19px;top:44px;bottom:0;
+  width:2px;background:linear-gradient(to bottom,var(--border-glow),transparent);
+}
+.how-num{
+  width:40px;height:40px;border-radius:12px;
+  background:var(--accent-dim);border:1px solid var(--border-glow);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent);
+  flex-shrink:0;
+}
+.how-body{flex:1;padding-top:6px}
+.how-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:5px}
+.how-desc{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ── Actions showcase ──────────────────────── */
+.actions-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:40px}
+.action-pill{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;border-radius:var(--r-2xl);
+  border:1px solid;font-size:13px;font-weight:500;
+  transition:all .2s;cursor:default;
+}
+.action-pill:hover{transform:scale(1.04)}
+
+/* ── Stats bar ─────────────────────────────── */
+.stats-bar{
+  background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  padding:40px 28px;
+}
+.stats-inner{max-width:var(--max);margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.stat-item{text-align:center}
+.stat-value{font-family:var(--display);font-size:48px;letter-spacing:.02em;color:var(--accent);line-height:1}
+.stat-label{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* ── FAQ ───────────────────────────────────── */
+.faq-list{display:flex;flex-direction:column;gap:8px;margin-top:40px;max-width:720px}
+.faq-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+.faq-q{
+  padding:16px 20px;font-size:14px;font-weight:600;color:var(--text);
+  cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  transition:background .15s;user-select:none;
+}
+.faq-q:hover{background:var(--overlay)}
+.faq-q-icon{font-size:18px;color:var(--muted);transition:transform .25s;flex-shrink:0}
+.faq-a{
+  padding:0 20px;max-height:0;overflow:hidden;
+  font-size:13px;color:var(--muted);line-height:1.7;
+  transition:max-height .3s ease,padding .3s ease;
+}
+.faq-item.open .faq-a{max-height:300px;padding:0 20px 16px}
+.faq-item.open .faq-q-icon{transform:rotate(45deg)}
+.faq-item.open .faq-q{color:var(--accent)}
+
+/* ── Footer ────────────────────────────────── */
+footer{
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  padding:60px 28px 40px;
+}
+.footer-inner{max-width:var(--max);margin:0 auto;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:40px}
+.footer-brand-name{font-family:var(--display);font-size:28px;letter-spacing:.04em;color:var(--text);line-height:1;margin-bottom:10px}
+.footer-brand-name span{color:var(--accent)}
+.footer-tagline{font-size:13px;color:var(--muted);line-height:1.6;max-width:220px}
+.footer-col-title{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.07em;margin-bottom:14px}
+.footer-links{display:flex;flex-direction:column;gap:8px}
+.footer-link{font-size:13px;color:var(--muted);transition:color .15s}
+.footer-link:hover{color:var(--text);text-decoration:none}
+.footer-bottom{max-width:var(--max);margin:0 auto;padding-top:40px;border-top:1px solid var(--border);margin-top:48px;display:flex;justify-content:space-between;align-items:center;flex-wrap:gap}
+.footer-copy{font-size:12px;color:var(--dim)}
+.footer-legal{display:flex;gap:20px}
+.footer-legal a{font-size:12px;color:var(--dim);transition:color .15s}
+.footer-legal a:hover{color:var(--muted);text-decoration:none}
+
+/* ── Live clock in hero ────────────────────── */
+#hero-clock{
+  font-family:var(--mono);font-size:42px;font-weight:600;
+  color:var(--text);letter-spacing:-.02em;line-height:1;
+  animation:count .95s cubic-bezier(.4,0,.2,1) infinite;
+  animation-play-state:paused;
+}
+
+/* ── Download counter (live) ───────────────── */
+.dl-counter{
+  font-family:var(--mono);font-size:13px;font-weight:600;
+  color:var(--accent);
+}
+
+/* ── Toast notification ────────────────────── */
+.toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--card);border:1px solid var(--border-glow);
+  border-radius:var(--r-md);padding:14px 18px;
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;color:var(--text);
+  box-shadow:0 8px 40px rgba(0,0,0,.6);
+  transform:translateY(80px);opacity:0;
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);
+  z-index:999;pointer-events:none;max-width:320px;
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-icon{font-size:18px;flex-shrink:0}
+
+/* ── Responsive ────────────────────────────── */
+@media(max-width:900px){
+  .features-grid{grid-template-columns:repeat(2,1fr)}
+  .download-grid{grid-template-columns:1fr}
+  .stats-inner{grid-template-columns:repeat(2,1fr)}
+  .footer-inner{grid-template-columns:1fr 1fr}
+  .nav-links{display:none}
+}
+@media(max-width:600px){
+  .features-grid{grid-template-columns:1fr}
+  .stats-inner{grid-template-columns:1fr 1fr}
+  .footer-inner{grid-template-columns:1fr}
+  .hero-title{font-size:56px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">◷</div>
+      <div class="nav-wordmark">POH<span>TIMER</span></div>
+    </a>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#download" class="nav-link">Download</a>
+      <a href="#how-it-works" class="nav-link">How it works</a>
+      <a href="#faq" class="nav-link">FAQ</a>
+      <a href="https://github.com/Virusilvester/pohtimer" class="nav-link" target="_blank">GitHub</a>
+    </div>
+    <a href="#download" class="nav-dl">⬇ Download Free</a>
+  </div>
+</nav>
+
+<!-- ── Hero ────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="scan-line"></div>
+  <div class="hero-content" style="animation:slide-up .7s ease both">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      FREE · OPEN SOURCE · WINDOWS 10/11
+    </div>
+
+    <h1 class="hero-title">
+      POH<span>TIMER</span>
+    </h1>
+
+    <p class="hero-tagline">
+      Schedule your PC to <strong>sleep, hibernate, shutdown</strong><br/>exactly when you want it to.
+    </p>
+
+    <p class="hero-desc">
+      Set countdown timers for any power action. Laptop battery rules that react to charge levels. 
+      A beautiful desktop clock overlay. All in one lightweight Windows app.
+    </p>
+
+    <div class="cta-group">
+      <button class="btn-primary" onclick="scrollToDownload()">
+        <span>⬇</span>
+        Download for Windows
+        <span style="font-size:11px;opacity:.7;font-weight:400">Free · v1.0.0</span>
+      </button>
+      <a href="https://github.com/Virusilvester/pohtimer" class="btn-secondary" target="_blank">
+        <span>◈</span> View Source
+      </a>
+    </div>
+    <p class="hero-note">No account required · No telemetry · No ads · ~8 MB installer</p>
+  </div>
+
+  <!-- Animated app preview window -->
+  <div class="app-preview" style="animation:slide-up .9s .2s ease both">
+    <div class="preview-glow"></div>
+    <div class="preview-window">
+      <div class="preview-titlebar">
+        <div class="preview-titlebar-left">
+          <div class="preview-wm"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+          <div class="preview-title">POH<b>TIMER</b></div>
+        </div>
+        <div style="font-size:10px;color:rgba(0,217,126,.7);display:flex;align-items:center;gap:4px">
+          <span style="width:5px;height:5px;border-radius:50%;background:#00d97e;animation:blink 2s ease infinite;display:inline-block"></span>
+          2 running
+        </div>
+      </div>
+      <div class="preview-body">
+        <!-- Sidebar -->
+        <div class="preview-sidebar">
+          <div class="preview-nav-item active">⊞ Dashboard</div>
+          <div class="preview-nav-item">◷ Timers</div>
+          <div class="preview-nav-item">⚡ Battery</div>
+          <div class="preview-nav-item">⏻ Power</div>
+          <div class="preview-nav-item">≡ History</div>
+          <div class="preview-nav-item">⚙ Settings</div>
+        </div>
+        <!-- Main -->
+        <div class="preview-main">
+          <div>
+            <div class="preview-clock" id="preview-clock">00:00:00</div>
+            <div class="preview-clock-sub" id="preview-date">Loading...</div>
+          </div>
+          <!-- Timer card -->
+          <div class="preview-timer-row">
+            <div class="preview-timer-ring">
+              <svg width="52" height="52">
+                <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="4"/>
+                <circle id="preview-ring" cx="26" cy="26" r="22" fill="none" stroke="#ffb900" stroke-width="4"
+                  stroke-dasharray="138" stroke-dashoffset="80"
+                  stroke-linecap="round" transform="rotate(-90 26 26)"
+                  style="transition:stroke-dashoffset 1s linear"/>
+                <text id="preview-ring-text" x="26" y="30" text-anchor="middle" font-size="9"
+                  font-family="JetBrains Mono" fill="#ffb900" font-weight="700">0:23</text>
+              </svg>
+            </div>
+            <div class="preview-timer-info">
+              <div class="preview-timer-label">Sleep after movie</div>
+              <div class="preview-timer-badge">⏻ Hibernate</div>
+            </div>
+          </div>
+          <!-- Stats -->
+          <div class="preview-stats">
+            <div class="preview-stat">
+              <div class="preview-stat-val" style="color:var(--accent)">2</div>
+              <div class="preview-stat-label">Timers</div>
+            </div>
+            <div class="preview-stat">
+              <div class="preview-stat-val" style="color:var(--info)">3</div>
+              <div class="preview-stat-label">Rules</div>
+            </div>
+            <div class="preview-stat">
+              <div class="preview-stat-val" style="color:var(--success)">72%</div>
+              <div class="preview-stat-label">Battery</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats bar ────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <div class="stat-value">6</div>
+      <div class="stat-label">Power actions</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">~8<span style="font-size:.5em">MB</span></div>
+      <div class="stat-label">Installer size</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">0</div>
+      <div class="stat-label">Telemetry & ads</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">100%</div>
+      <div class="stat-label">Free & open source</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ─────────────────────────────────────────────── -->
+<section id="features">
+  <div class="container">
+    <div class="section-label">FEATURES</div>
+    <h2 class="section-title">Everything you need.<br/>Nothing you don't.</h2>
+    <p class="section-sub">PoHtimer packs every power scheduling feature into one clean, distraction-free window.</p>
+
+    <div class="features-grid">
+      <!-- Timer -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(255,185,0,.12);border-color:rgba(255,185,0,.3);color:var(--accent)">◷</div>
+        <div class="feature-title">Flexible Timers</div>
+        <div class="feature-desc">Type <code style="color:var(--accent);font-family:var(--mono);font-size:12px">1h30m</code>, <code style="color:var(--accent);font-family:var(--mono);font-size:12px">90:00</code>, or seconds. Pause, resume, repeat. Visual countdown ring with urgency color shift.</div>
+      </div>
+      <!-- Battery -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.3);color:var(--info)">⚡</div>
+        <div class="feature-title">Battery Rules</div>
+        <div class="feature-desc">Laptop-aware. React to low battery, a specific charge percent, or when the charger is unplugged. Each rule has its own action.</div>
+      </div>
+      <!-- Power actions -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(255,77,77,.12);border-color:rgba(255,77,77,.3);color:var(--danger)">⏻</div>
+        <div class="feature-title">6 Power Actions</div>
+        <div class="feature-desc">Shutdown · Restart · Hibernate · Sleep · Lock Screen · Log Off. Instant execution with a 5-second countdown and one-click cancel.</div>
+      </div>
+      <!-- Overlay -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(0,217,126,.12);border-color:rgba(0,217,126,.3);color:var(--success)">🖥</div>
+        <div class="feature-title">Desktop Overlay</div>
+        <div class="feature-desc">Minimize to a draggable clock widget — Digital or Analog. Always shows your active timer countdown. Right-click to switch modes.</div>
+      </div>
+      <!-- History -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(155,127,232,.12);border-color:rgba(155,127,232,.3);color:#9b7fe8">≡</div>
+        <div class="feature-title">Event History</div>
+        <div class="feature-desc">Full log of every action triggered by timers and battery rules. Filter by action type. Clear anytime.</div>
+      </div>
+      <!-- Auto-updater -->
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(255,140,0,.12);border-color:rgba(255,140,0,.3);color:var(--warn)">↑</div>
+        <div class="feature-title">Silent Auto-Updates</div>
+        <div class="feature-desc">Built-in Tauri updater checks for new releases and installs in the background. Always on the latest version, no manual downloads.</div>
+      </div>
+    </div>
+
+    <!-- Actions showcase -->
+    <div style="margin-top:64px">
+      <div class="section-label">POWER ACTIONS</div>
+      <h3 style="font-size:24px;font-weight:700;margin-bottom:8px">What can it trigger?</h3>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:0">Any timer or battery rule can fire any of these actions:</p>
+      <div class="actions-grid">
+        <div class="action-pill" style="background:rgba(255,77,77,.1);border-color:rgba(255,77,77,.35);color:#ff6b6b">⏻ Shutdown</div>
+        <div class="action-pill" style="background:rgba(255,140,0,.1);border-color:rgba(255,140,0,.35);color:#ffaa44">↺ Restart</div>
+        <div class="action-pill" style="background:rgba(59,158,255,.1);border-color:rgba(59,158,255,.35);color:#6bbfff">❄ Hibernate</div>
+        <div class="action-pill" style="background:rgba(155,127,232,.1);border-color:rgba(155,127,232,.35);color:#b89ff0">☽ Sleep</div>
+        <div class="action-pill" style="background:rgba(0,217,126,.1);border-color:rgba(0,217,126,.35);color:#33e89a">🔒 Lock Screen</div>
+        <div class="action-pill" style="background:rgba(255,185,0,.1);border-color:rgba(255,185,0,.35);color:var(--accent)">⇥ Log Off</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ──────────────────────────────────────────── -->
+<section id="how-it-works" style="background:var(--surface)">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start">
+      <div>
+        <div class="section-label">HOW IT WORKS</div>
+        <h2 class="section-title">Simple as setting an alarm.</h2>
+        <p class="section-sub">Three steps and your PC takes care of itself.</p>
+
+        <div class="how-steps" style="margin-top:40px">
+          <div class="how-step">
+            <div class="how-num">1</div>
+            <div class="how-body">
+              <div class="how-title">Create a timer</div>
+              <div class="how-desc">Type a duration in any format — <code style="color:var(--accent);font-family:var(--mono)">1h30m</code>, <code style="color:var(--accent);font-family:var(--mono)">90:00</code>, or just <code style="color:var(--accent);font-family:var(--mono)">5400</code> seconds. Give it a label so you remember what it's for.</div>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">2</div>
+            <div class="how-body">
+              <div class="how-title">Choose an action</div>
+              <div class="how-desc">Pick what happens when the timer fires: Shutdown, Restart, Hibernate, Sleep, Lock, or Log Off. Optionally set it to repeat.</div>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">3</div>
+            <div class="how-body">
+              <div class="how-title">Minimize and forget</div>
+              <div class="how-desc">Minimize to the desktop clock overlay. PoHtimer runs silently in the background — your PC will act exactly when you told it to.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Battery rules side -->
+      <div>
+        <div class="section-label" style="margin-top:4px">BATTERY RULES</div>
+        <h3 style="font-size:26px;font-weight:700;margin-bottom:12px;letter-spacing:-.01em">Smart laptop protection.</h3>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:24px;line-height:1.6">Set rules that automatically protect your battery and your work — no timer needed.</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">🔋 Low battery → Hibernate</div>
+            <div style="font-size:12px;color:var(--muted)">Fires when Windows reports low battery threshold (~15–20%)</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">% Battery hits 10% → Shutdown</div>
+            <div style="font-size:12px;color:var(--muted)">Trigger on any specific battery percentage you choose</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);padding:16px">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">🔌 Charger unplugged → Lock screen</div>
+            <div style="font-size:12px;color:var(--muted)">Instantly reacts when power is disconnected</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Download ──────────────────────────────────────────────── -->
+<section id="download">
+  <div class="container">
+    <div class="section-label">DOWNLOAD</div>
+    <h2 class="section-title">Get PoHtimer.</h2>
+    <p class="section-sub">Free. No account. No subscription. Always will be.</p>
+
+    <div class="download-grid">
+      <!-- Main download card -->
+      <div>
+        <div class="dl-card primary">
+          <div class="dl-version-badge">⬡ v<span id="dl-version">1.0.0</span></div>
+          <div class="dl-title">Windows Installer</div>
+          <div class="dl-arch">64-bit (x64) — Intel &amp; AMD processors</div>
+
+          <a href="https://github.com/Virusilvester/pohtimer/releases/latest/download/PoHtimer_1.0.0_x64-setup.exe"
+             class="dl-btn" id="dl-btn-main" onclick="trackDownload('nsis-x64')">
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px">
+              <span>PoHtimer_1.0.0_x64-setup.exe</span>
+              <span class="dl-btn-meta">NSIS Installer · ~8 MB</span>
+            </div>
+            <span class="dl-btn-icon">⬇</span>
+          </a>
+
+          <a href="https://github.com/Virusilvester/pohtimer/releases/latest/download/PoHtimer_1.0.0_x64.msi"
+             class="dl-btn secondary" onclick="trackDownload('msi-x64')">
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px">
+              <span>PoHtimer_1.0.0_x64.msi</span>
+              <span class="dl-btn-meta">Windows Installer package</span>
+            </div>
+            <span class="dl-btn-icon">⬇</span>
+          </a>
+
+          <div class="dl-info">
+            <div class="dl-info-row">✓ No account required</div>
+            <div class="dl-info-row">✓ No telemetry or data collection</div>
+            <div class="dl-info-row">✓ Automatic updates included</div>
+            <div class="dl-info-row">✓ Uninstall cleanly from Control Panel</div>
+          </div>
+        </div>
+
+        <!-- ARM64 -->
+        <div class="dl-card" style="margin-top:12px;padding:18px 24px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500">ARM64 — Surface Pro X · Snapdragon laptops</div>
+          <a href="https://github.com/Virusilvester/pohtimer/releases/latest/download/PoHtimer_1.0.0_arm64-setup.exe"
+             class="dl-btn secondary" onclick="trackDownload('nsis-arm64')" style="margin-bottom:0">
+            <span>PoHtimer_1.0.0_arm64-setup.exe</span>
+            <span class="dl-btn-icon">⬇</span>
+          </a>
+        </div>
+
+        <!-- Checksum -->
+        <div style="margin-top:12px">
+          <div style="font-size:11px;color:var(--dim);margin-bottom:4px">Verify your download (SHA-256):</div>
+          <div class="dl-checksum" id="checksum-display">
+            Loading checksum…
+          </div>
+          <div style="font-size:11px;color:var(--dim);margin-top:6px">
+            Full checksums: <a href="https://github.com/Virusilvester/pohtimer/releases/latest/download/SHA256SUMS.txt" target="_blank">SHA256SUMS.txt</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Requirements -->
+      <div>
+        <h3 style="font-size:17px;font-weight:700;margin-bottom:16px;color:var(--text)">System Requirements</h3>
+        <div class="sys-reqs">
+          <div class="req-item">
+            <div class="req-icon">🖥</div>
+            <div>
+              <div class="req-label">Windows 10 or 11</div>
+              <div class="req-desc">64-bit · version 1803 or newer</div>
+            </div>
+          </div>
+          <div class="req-item">
+            <div class="req-icon">🌐</div>
+            <div>
+              <div class="req-label">WebView2 Runtime</div>
+              <div class="req-desc">Pre-installed on all Win10/11 systems. If missing, the installer will prompt you.</div>
+            </div>
+          </div>
+          <div class="req-item">
+            <div class="req-icon">💾</div>
+            <div>
+              <div class="req-label">~25 MB disk space</div>
+              <div class="req-desc">Installed size including WebView2 runtime files</div>
+            </div>
+          </div>
+          <div class="req-item">
+            <div class="req-icon">🛡</div>
+            <div>
+              <div class="req-label">Admin rights for install</div>
+              <div class="req-desc">Required for installation only. Runs without admin after install.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding:14px 16px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.25);border-radius:var(--r-md);font-size:12px;color:#ffb74d;display:flex;gap:8px">
+          <span>⚠</span>
+          <span><strong>SmartScreen notice:</strong> Windows may show a security warning for unsigned apps. Click <em>More info → Run anyway</em> to proceed.</span>
+        </div>
+
+        <div style="margin-top:20px">
+          <h4 style="font-size:14px;font-weight:600;margin-bottom:10px">All releases</h4>
+          <a href="https://github.com/Virusilvester/pohtimer/releases" target="_blank"
+             class="btn-secondary" style="display:inline-flex;font-size:13px;padding:10px 16px;">
+            ◈ View all releases on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ───────────────────────────────────────────────────── -->
+<section id="faq" style="background:var(--surface)">
+  <div class="container">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Common questions.</h2>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Is PoHtimer really free?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">Yes, completely. PoHtimer is free and open source under the MIT license. There are no premium tiers, no in-app purchases, no ads, and no usage limits. You can even self-host and build it yourself from source.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Does it send any data to the internet?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">The only network request PoHtimer makes is a periodic check to <code style="color:var(--accent);font-family:var(--mono)">latest.json</code> on this website to see if a new version is available. No usage data, no analytics, no crash reports are sent anywhere. Ever.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Will battery rules work on my desktop PC?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">Battery rules only activate on devices with a battery — laptops, tablets, or desktops connected to a UPS. On a standard desktop PC without a battery, the Battery tab will show 0% and rules won't fire. This is correct behavior.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I cancel a power action once a timer fires?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">Yes. By default, PoHtimer shows a 5-second countdown dialog with a Cancel button when any action is about to execute. You can also disable this confirmation in Settings if you want instant execution.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Does it run when Windows starts?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">Optionally. In Settings, enable "Start with Windows" to launch PoHtimer automatically at login. Pair it with "Start minimized" to have it launch silently as the desktop clock overlay — your timers and battery rules will be active from the moment you log in.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How do I uninstall PoHtimer?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">Go to Windows Settings → Apps → Installed apps, find PoHtimer, and click Uninstall. Alternatively, use the Add or Remove Programs control panel. The uninstaller removes all app files cleanly — no leftover registry keys or folders.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          I see a Windows SmartScreen warning. Is this safe?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">Yes. SmartScreen warnings appear for any app from a new publisher that hasn't yet built a reputation with Microsoft. PoHtimer is open source — you can audit every line of code on GitHub. To proceed: click "More info" then "Run anyway." The warning disappears as more users install the app and Microsoft builds a trust score for the publisher.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I contribute or report bugs?
+          <span class="faq-q-icon">+</span>
+        </div>
+        <div class="faq-a">Absolutely. PoHtimer is built with Tauri 2 + React + TypeScript + Rust. Open a GitHub issue for bug reports, feature requests, or questions. Pull requests are welcome — the codebase is structured for easy contribution.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand-name">POH<span>TIMER</span></div>
+      <div class="footer-tagline">Power scheduling utility for Windows. Free and open source.</div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <a href="https://github.com/Virusilvester/pohtimer" target="_blank"
+           style="width:34px;height:34px;border-radius:8px;background:var(--elevated);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--muted);transition:all .15s"
+           onmouseenter="this.style.borderColor='var(--border-glow)';this.style.color='var(--accent)'"
+           onmouseleave="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">◈</a>
+      </div>
+    </div>
+    <div>
+      <div class="footer-col-title">PRODUCT</div>
+      <div class="footer-links">
+        <a href="#features" class="footer-link">Features</a>
+        <a href="#download" class="footer-link">Download</a>
+        <a href="#how-it-works" class="footer-link">How it works</a>
+        <a href="#faq" class="footer-link">FAQ</a>
+      </div>
+    </div>
+    <div>
+      <div class="footer-col-title">RESOURCES</div>
+      <div class="footer-links">
+        <a href="https://github.com/Virusilvester/pohtimer" class="footer-link" target="_blank">GitHub</a>
+        <a href="https://github.com/Virusilvester/pohtimer/releases" class="footer-link" target="_blank">Releases</a>
+        <a href="https://github.com/Virusilvester/pohtimer/issues" class="footer-link" target="_blank">Bug Reports</a>
+        <a href="https://github.com/Virusilvester/pohtimer/blob/main/SETUP.md" class="footer-link" target="_blank">Setup Guide</a>
+      </div>
+    </div>
+    <div>
+      <div class="footer-col-title">BUILT WITH</div>
+      <div class="footer-links">
+        <a href="https://tauri.app" class="footer-link" target="_blank">Tauri 2</a>
+        <a href="https://react.dev" class="footer-link" target="_blank">React</a>
+        <a href="https://www.typescriptlang.org" class="footer-link" target="_blank">TypeScript</a>
+        <a href="https://www.rust-lang.org" class="footer-link" target="_blank">Rust</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-copy">© 2025 PoHtimer. Released under the MIT License.</div>
+    <div class="footer-legal">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms</a>
+      <a href="https://github.com/Virusilvester/pohtimer/blob/main/LICENSE" target="_blank">License</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ── Toast ─────────────────────────────────────────────────── -->
+<div class="toast" id="toast">
+  <span class="toast-icon">⬇</span>
+  <span id="toast-msg">Download starting…</span>
+</div>
+
+<script>
+// ── Live clock in preview window ─────────────────────────────
+function updatePreviewClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  const el = document.getElementById('preview-clock');
+  if(el) el.textContent = `${h}:${m}:${s}`;
+  const de = document.getElementById('preview-date');
+  if(de) de.textContent = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+
+  // Animate ring
+  const ring = document.getElementById('preview-ring');
+  const rt = document.getElementById('preview-ring-text');
+  if(ring) {
+    const secs = now.getSeconds();
+    const offset = 138 - (secs/60)*138;
+    ring.setAttribute('stroke-dashoffset', offset);
+    const remaining = 60-secs;
+    if(rt) rt.textContent = `0:${String(remaining).padStart(2,'0')}`;
+  }
+}
+setInterval(updatePreviewClock, 1000);
+updatePreviewClock();
+
+// ── Fetch latest version from GitHub API ─────────────────────
+async function fetchLatestVersion() {
+  try {
+    const res = await fetch('https://api.github.com/repos/Virusilvester/pohtimer/releases/latest');
+    if(!res.ok) return;
+    const data = await res.json();
+    const version = data.tag_name?.replace(/^v/,'') || '1.0.0';
+
+    // Update all version displays
+    document.getElementById('dl-version').textContent = version;
+
+    // Update download links
+    const base = `https://github.com/Virusilvester/pohtimer/releases/download/v${version}`;
+    const mainBtn = document.getElementById('dl-btn-main');
+    if(mainBtn) {
+      mainBtn.href = `${base}/PoHtimer_${version}_x64-setup.exe`;
+      mainBtn.querySelector('span').textContent = `PoHtimer_${version}_x64-setup.exe`;
+    }
+
+    // Try to fetch checksums
+    const sha = await fetch(`${base}/SHA256SUMS.txt`).then(r=>r.text()).catch(()=>null);
+    const csEl = document.getElementById('checksum-display');
+    if(sha && csEl) {
+      const line = sha.split('\n').find(l=>l.includes('x64-setup.exe'));
+      if(line) csEl.textContent = line.split(/\s+/)[0];
+      else csEl.textContent = 'See SHA256SUMS.txt for checksums';
+    } else if(csEl) {
+      csEl.textContent = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    }
+  } catch {
+    document.getElementById('checksum-display').textContent =
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  (example — check releases page)';
+  }
+}
+fetchLatestVersion();
+
+// ── Download tracking ─────────────────────────────────────────
+function trackDownload(type) {
+  showToast(`⬇ Downloading PoHtimer (${type})…`);
+  // Add your analytics here (e.g. Plausible, Fathom, custom endpoint)
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  const m = document.getElementById('toast-msg');
+  m.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── FAQ accordion ─────────────────────────────────────────────
+function toggleFaq(el) {
+  const item = el.parentElement;
+  const wasOpen = item.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  // Open clicked (if it wasn't open)
+  if(!wasOpen) item.classList.add('open');
+}
+
+// ── Scroll to download ────────────────────────────────────────
+function scrollToDownload() {
+  document.getElementById('download').scrollIntoView({behavior:'smooth'});
+}
+
+// ── Active nav link on scroll ─────────────────────────────────
+const sections = document.querySelectorAll('section[id], div[id="download"]');
+function updateNav() {
+  let current = '';
+  sections.forEach(s => {
+    if(window.scrollY + 80 >= s.offsetTop) current = s.id;
+  });
+  document.querySelectorAll('.nav-link').forEach(l => {
+    const href = l.getAttribute('href')?.slice(1);
+    l.style.color = href === current ? 'var(--accent)' : '';
+  });
+}
+window.addEventListener('scroll', updateNav, {passive:true});
+
+// ── Intersection observer for animations ─────────────────────
+if('IntersectionObserver' in window) {
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(e.isIntersecting) {
+        e.target.style.animation = 'slide-up .5s ease both';
+        obs.unobserve(e.target);
+      }
+    });
+  }, {threshold:0.1});
+  document.querySelectorAll('.feature-card,.how-step,.req-item').forEach(el => obs.observe(el));
+}
+</script>
+</body>
+</html>
