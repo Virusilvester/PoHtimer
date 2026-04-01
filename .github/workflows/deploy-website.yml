@@ -1,3 +1,17 @@
+# ─────────────────────────────────────────────────────────────
+#  PoHtimer · Website Deploy Workflow
+#
+#  Triggers:
+#    - After a successful release (downloads latest.json and bakes it in)
+#    - Manual dispatch for hotfixes
+#
+#  Deploys to: Vercel (primary) with Netlify fallback config included
+#
+#  Required secrets:
+#    VERCEL_TOKEN       – from vercel.com/account/tokens
+#    VERCEL_ORG_ID      – from .vercel/project.json after first deploy
+#    VERCEL_PROJECT_ID  – from .vercel/project.json after first deploy
+# ─────────────────────────────────────────────────────────────
 name: Deploy Website
 
 on:
@@ -30,7 +44,7 @@ jobs:
       - name: Fetch latest release info from GitHub
         id: release
         run: |
-          DATA=$(curl -s -H "Authorization: Bearer ${{ secrets.RELEASE_TOKEN }}" \
+          DATA=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/latest")
 
           VERSION=$(echo $DATA | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))")

@@ -1,3 +1,21 @@
+# ─────────────────────────────────────────────────────────────
+#  PoHtimer · Release Workflow
+#
+#  Trigger: push a version tag  →  git tag v1.2.3 && git push --tags
+#
+#  Pipeline:
+#    validate-tag
+#      └─ build-windows        (MSI + NSIS installer)
+#            └─ sign           (code-sign with cert from secrets)
+#                  └─ release  (create GitHub Release, upload assets)
+#                        └─ update-website (publish latest.json for auto-updater)
+#
+#  Required secrets (Settings → Secrets and variables → Actions):
+#    TAURI_SIGNING_PRIVATE_KEY      – base64-encoded PEM private key
+#    TAURI_SIGNING_PRIVATE_KEY_PASSWORD – passphrase (if key is encrypted)
+#    RELEASE_TOKEN                  – GitHub PAT with repo + write:packages scope
+#    WEBSITE_DEPLOY_TOKEN           – deploy token for your hosting (Vercel/Netlify/etc.)
+# ─────────────────────────────────────────────────────────────
 name: Release
 
 on:
@@ -121,7 +139,7 @@ jobs:
       - name: Build Tauri application
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -259,13 +277,14 @@ jobs:
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: ${{ needs.validate-tag.outputs.release_name }}
           body_path: release_body.md
           prerelease: ${{ needs.validate-tag.outputs.is_prerelease }}
           files: |
             release-assets/*
-          token: ${{ secrets.RELEASE_TOKEN }}
           fail_on_unmatched_files: true
 
   # ── 4. Generate latest.json for auto-updater ───────────────
@@ -314,9 +333,10 @@ jobs:
 
       - name: Upload latest.json to release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: latest.json
-          token: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Upload latest.json artifact (for website deploy)
         uses: actions/upload-artifact@v4
