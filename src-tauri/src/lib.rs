@@ -248,7 +248,7 @@ fn minimize_to_overlay(app: tauri::AppHandle, mode: String, size: u32) -> Result
 #[tauri::command]
 fn set_overlay_bounds(
     app: tauri::AppHandle,
-    mode: String,
+    _mode: String,
     width: u32,
     height: u32,
 ) -> Result<(), String> {
