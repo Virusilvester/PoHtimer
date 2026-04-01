@@ -340,6 +340,36 @@ fn start_dragging(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn set_overlay_position(app: tauri::AppHandle, x: i32, y: i32) -> Result<(), String> {
+    let win = main_window(&app)?;
+    let size = win.outer_size().map_err(|e| e.to_string())?;
+
+    let mut target_x = x;
+    let mut target_y = y;
+
+    if let Ok(Some(monitor)) = win.current_monitor() {
+        let msize = monitor.size();
+        let max_x = (msize.width as i32).saturating_sub(size.width as i32);
+        let max_y = (msize.height as i32).saturating_sub(size.height as i32);
+        target_x = target_x.clamp(0, max_x.max(0));
+        target_y = target_y.clamp(0, max_y.max(0));
+    }
+
+    win.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+        x: target_x,
+        y: target_y,
+    }))
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_window_position(app: tauri::AppHandle) -> Result<(i32, i32), String> {
+    let win = main_window(&app)?;
+    let pos = win.outer_position().map_err(|e| e.to_string())?;
+    Ok((pos.x, pos.y))
+}
+
+#[tauri::command]
 fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
     let win = main_window(&app)?;
     win.show().map_err(|e| e.to_string())?;
@@ -546,7 +576,7 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(800));
+            std::thread::sleep(Duration::from_millis(3500));
                 if let Some(main) = app_handle.get_webview_window("main") {
                     if !main.is_visible().unwrap_or(true) {
                         let _ = main.show();
@@ -574,6 +604,8 @@ pub fn run() {
             restore_from_overlay,
             window_minimize,
             start_dragging,
+            set_overlay_position,
+            get_window_position,
             show_main_window,
             close_splashscreen,
             hide_main_window,

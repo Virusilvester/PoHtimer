@@ -110,6 +110,14 @@ export const TauriCommands = {
     return invokeCommand("start_dragging");
   },
 
+  async setOverlayPosition(x: number, y: number) {
+    return invokeCommand("set_overlay_position", { x, y });
+  },
+
+  async getWindowPosition(): Promise<[number, number]> {
+    return invokeCommand("get_window_position");
+  },
+
   async exitApp() {
     return invokeCommand("exit_app");
   },

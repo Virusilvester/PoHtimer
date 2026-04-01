@@ -94,6 +94,12 @@ const App: React.FC = () => {
     if (isMinimized) {
       wasOverlay.current = true;
       void TauriCommands.minimizeToOverlay(overlayMode, settings.clockSize);
+      window.setTimeout(() => {
+        void TauriCommands.setOverlayPosition(
+          settings.clockPosition.x,
+          settings.clockPosition.y,
+        );
+      }, 200);
       return;
     }
     if (!wasOverlay.current) return;
@@ -108,10 +114,12 @@ const App: React.FC = () => {
       autostartInitialized.current = true;
       lastAutostart.current = s.settings.autostart;
 
-      void TauriCommands.closeSplashscreen();
-      if (!s.settings.startMinimized) {
-        void TauriCommands.showMainWindow();
-      }
+      window.setTimeout(() => {
+        void TauriCommands.closeSplashscreen();
+        if (!s.settings.startMinimized) {
+          void TauriCommands.showMainWindow();
+        }
+      }, 3500);
 
       void (async () => {
         const enabled = await TauriCommands.getAutostartEnabled().catch(() => null);
@@ -137,7 +145,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const id = window.setTimeout(() => {
       void TauriCommands.closeSplashscreen();
-    }, 200);
+    }, 3500);
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };

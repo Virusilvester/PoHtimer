@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useStore } from "../store";
 import { TauriCommands } from "../tauricommands";
 
@@ -13,6 +13,15 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
     if (target?.closest?.('[data-tauri-drag-region="false"]')) return;
     void TauriCommands.startDragging();
   };
+
+  const persistPosition = useCallback(async () => {
+    try {
+      const [x, y] = await TauriCommands.getWindowPosition();
+      updateSettings({ clockPosition: { x, y } });
+    } catch {
+      // ignore
+    }
+  }, [updateSettings]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -64,7 +73,12 @@ const DigitalOverlay: React.FC<{ size: number }> = ({ size }) => {
         transition: "height 0.3s ease",
       }}
       onMouseDown={handleDragStart}
-      onDoubleClick={() => setMinimized(false)}
+      onMouseUp={() => void persistPosition()}
+      onTouchEnd={() => void persistPosition()}
+      onDoubleClick={() => {
+        void persistPosition();
+        setMinimized(false);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         setShowMenu(!showMenu);
@@ -267,6 +281,15 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
     void TauriCommands.startDragging();
   };
 
+  const persistPosition = useCallback(async () => {
+    try {
+      const [x, y] = await TauriCommands.getWindowPosition();
+      updateSettings({ clockPosition: { x, y } });
+    } catch {
+      // ignore
+    }
+  }, [updateSettings]);
+
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
@@ -315,7 +338,12 @@ const AnalogOverlay: React.FC<{ size: number }> = ({ size }) => {
         userSelect: "none",
       }}
       onMouseDown={handleDragStart}
-      onDoubleClick={() => setMinimized(false)}
+      onMouseUp={() => void persistPosition()}
+      onTouchEnd={() => void persistPosition()}
+      onDoubleClick={() => {
+        void persistPosition();
+        setMinimized(false);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         setShowMenu(!showMenu);
