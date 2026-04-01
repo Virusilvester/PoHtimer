@@ -38,7 +38,9 @@
     ],
     "security": {
       "csp": "default-src 'self'; img-src 'self' asset: data: blob:; font-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws: wss:;"
-    },
+    }
+  },
+  "plugins": {
     "updater": {
       "active": true,
       "endpoints": [
@@ -58,6 +60,19 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.sectigo.com",
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "installMode": "perMachine",
+        "languages": ["English"],
+        "displayLanguageSelector": false
+      }
+    }
   }
 }
