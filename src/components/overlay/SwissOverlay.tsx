@@ -34,26 +34,27 @@ export const SwissOverlay: React.FC<OverlayProps> = ({ size }) => {
   const r = size / 2 - 8;
   const scale = size / 160;
 
-  // Time calculations with smooth movement
+  // Smooth time
   const ms = now.getMilliseconds();
   const s = now.getSeconds() + ms / 1000;
   const m = now.getMinutes() + s / 60;
   const h = (now.getHours() % 12) + m / 60;
 
-  // Angles
   const hAngle = (h / 12) * 360 - 90;
   const mAngle = (m / 60) * 360 - 90;
   const sAngle = (s / 60) * 360 - 90;
 
-  // Hand positions
   const toXY = (angle: number, len: number) => ({
     x: cx + Math.cos((angle * Math.PI) / 180) * len,
     y: cx + Math.sin((angle * Math.PI) / 180) * len,
   });
 
-  const hPos = toXY(hAngle, r * 0.5);
-  const mPos = toXY(mAngle, r * 0.75);
-  const sPos = toXY(sAngle, r * 0.9);
+  // Hand tips
+  const hTip = toXY(hAngle, r * 0.5);
+  const mTip = toXY(mAngle, r * 0.75);
+  const sTip = toXY(sAngle, r * 0.88);
+  // Second hand counterweight tail (opposite direction, shorter)
+  const sTail = toXY(sAngle + 180, r * 0.22);
 
   // Timer arc
   const timerPct = activeTimer
@@ -86,30 +87,15 @@ export const SwissOverlay: React.FC<OverlayProps> = ({ size }) => {
     >
       <svg width={size} height={size}>
         <defs>
-          {/* Dial gradients */}
-          <radialGradient id="swiss-dial" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#f8f9fa" />
-            <stop offset="85%" stopColor="#e9ecef" />
-            <stop offset="100%" stopColor="#dee2e6" />
-          </radialGradient>
           <radialGradient id="swiss-dial-dark" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#1a1d21" />
             <stop offset="100%" stopColor="#0d0f12" />
           </radialGradient>
-
-          {/* Metallic finishes */}
           <linearGradient id="silver" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#f8f9fa" />
             <stop offset="50%" stopColor="#adb5bd" />
             <stop offset="100%" stopColor="#6c757d" />
           </linearGradient>
-
-          <linearGradient id="rose-gold" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f4c2c2" />
-            <stop offset="50%" stopColor="#d4a5a5" />
-            <stop offset="100%" stopColor="#b5838d" />
-          </linearGradient>
-
           <filter id="swiss-shadow">
             <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.3" />
           </filter>
@@ -122,7 +108,7 @@ export const SwissOverlay: React.FC<OverlayProps> = ({ size }) => {
         {/* Dial */}
         <circle cx={cx} cy={cx} r={r} fill="url(#swiss-dial-dark)" />
 
-        {/* Minute track */}
+        {/* Minute track ring */}
         <circle
           cx={cx}
           cy={cx}
@@ -137,9 +123,8 @@ export const SwissOverlay: React.FC<OverlayProps> = ({ size }) => {
           const angle = (i / 60) * 360 - 90;
           const isHour = i % 5 === 0;
           const innerR = r - (isHour ? 8 : 5);
-          const outerR = r - 4;
           const start = toXY(angle, innerR);
-          const end = toXY(angle, outerR);
+          const end = toXY(angle, r - 4);
           return (
             <line
               key={i}
@@ -155,24 +140,23 @@ export const SwissOverlay: React.FC<OverlayProps> = ({ size }) => {
           );
         })}
 
-        {/* Hour markers - applied indices */}
+        {/* Hour index markers */}
         {Array.from({ length: 12 }, (_, i) => {
           const angle = (i / 12) * 360 - 90;
           const pos = toXY(angle, r - 15);
           const isCardinal = i % 3 === 0;
           return (
-            <g key={i}>
-              <rect
-                x={pos.x - (isCardinal ? 4 : 2) * scale}
-                y={pos.y - (isCardinal ? 12 : 6) * scale}
-                width={(isCardinal ? 8 : 4) * scale}
-                height={(isCardinal ? 24 : 12) * scale}
-                fill="rgba(255,255,255,0.9)"
-                rx={1}
-                transform={`rotate(${angle + 90} ${pos.x} ${pos.y})`}
-                filter="url(#swiss-shadow)"
-              />
-            </g>
+            <rect
+              key={i}
+              x={pos.x - (isCardinal ? 4 : 2) * scale}
+              y={pos.y - (isCardinal ? 12 : 6) * scale}
+              width={(isCardinal ? 8 : 4) * scale}
+              height={(isCardinal ? 24 : 12) * scale}
+              fill="rgba(255,255,255,0.9)"
+              rx={1}
+              transform={`rotate(${angle + 90} ${pos.x} ${pos.y})`}
+              filter="url(#swiss-shadow)"
+            />
           );
         })}
 
@@ -220,57 +204,89 @@ export const SwissOverlay: React.FC<OverlayProps> = ({ size }) => {
           </>
         )}
 
-        {/* Hour hand - dauphine style */}
+        {/* Hour hand — dauphine style: wide near center, tapers to tip */}
         <g filter="url(#swiss-shadow)">
-          <path
-            d={`M ${cx} ${cx} L ${hPos.x} ${hPos.y}`}
-            stroke="url(#silver)"
-            strokeWidth={4 * scale}
-            strokeLinecap="round"
-          />
-          <path
-            d={`M ${cx} ${cx} L ${toXY(hAngle, r * 0.35).x} ${toXY(hAngle, r * 0.35).y}`}
+          {/* Thick base section */}
+          <line
+            x1={cx}
+            y1={cx}
+            x2={toXY(hAngle, r * 0.35).x}
+            y2={toXY(hAngle, r * 0.35).y}
             stroke="url(#silver)"
             strokeWidth={6 * scale}
             strokeLinecap="round"
           />
-        </g>
-
-        {/* Minute hand - dauphine style */}
-        <g filter="url(#swiss-shadow)">
-          <path
-            d={`M ${cx} ${cx} L ${mPos.x} ${mPos.y}`}
+          {/* Tapered tip */}
+          <line
+            x1={toXY(hAngle, r * 0.3).x}
+            y1={toXY(hAngle, r * 0.3).y}
+            x2={hTip.x}
+            y2={hTip.y}
             stroke="url(#silver)"
             strokeWidth={3 * scale}
             strokeLinecap="round"
           />
-          <path
-            d={`M ${cx} ${cx} L ${toXY(mAngle, r * 0.6).x} ${toXY(mAngle, r * 0.6).y}`}
+        </g>
+
+        {/* Minute hand — dauphine style */}
+        <g filter="url(#swiss-shadow)">
+          <line
+            x1={cx}
+            y1={cx}
+            x2={toXY(mAngle, r * 0.5).x}
+            y2={toXY(mAngle, r * 0.5).y}
             stroke="url(#silver)"
             strokeWidth={5 * scale}
             strokeLinecap="round"
           />
+          <line
+            x1={toXY(mAngle, r * 0.45).x}
+            y1={toXY(mAngle, r * 0.45).y}
+            x2={mTip.x}
+            y2={mTip.y}
+            stroke="url(#silver)"
+            strokeWidth={2.5 * scale}
+            strokeLinecap="round"
+          />
         </g>
 
-        {/* Second hand - needle style */}
+        {/* Second hand — needle from tail counterweight through center to tip */}
         <g>
+          {/* Tail counterweight */}
           <line
             x1={cx}
-            y1={cx + r * 0.2}
-            x2={sPos.x}
-            y2={sPos.y}
+            y1={cx}
+            x2={sTail.x}
+            y2={sTail.y}
             stroke="#ff4d4d"
-            strokeWidth={1}
+            strokeWidth={2 * scale}
+            strokeLinecap="round"
           />
-          <circle cx={sPos.x} cy={sPos.y} r={2 * scale} fill="#ff4d4d" />
+          {/* Main needle */}
+          <line
+            x1={cx}
+            y1={cx}
+            x2={sTip.x}
+            y2={sTip.y}
+            stroke="#ff4d4d"
+            strokeWidth={1.2 * scale}
+            strokeLinecap="round"
+          />
+          {/* Lollipop circle near the tail */}
+          <circle
+            cx={toXY(sAngle + 180, r * 0.14).x}
+            cy={toXY(sAngle + 180, r * 0.14).y}
+            r={3 * scale}
+            fill="#ff4d4d"
+          />
         </g>
 
-        {/* Center cap */}
+        {/* Center cap — layered for realism */}
         <circle cx={cx} cy={cx} r={5 * scale} fill="url(#silver)" />
         <circle cx={cx} cy={cx} r={3 * scale} fill="#343a40" />
         <circle cx={cx} cy={cx} r={1.5 * scale} fill="#ff4d4d" />
 
-        {/* Date window */}
+        {/* Date window at 3 o'clock */}
         <rect
           x={cx + r * 0.55}
           y={cx - 8 * scale}
@@ -293,7 +309,6 @@ export const SwissOverlay: React.FC<OverlayProps> = ({ size }) => {
         </text>
       </svg>
 
-      {/* Context Menu */}
       {showMenu && (
         <div
           style={{

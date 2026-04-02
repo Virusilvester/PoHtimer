@@ -21,7 +21,7 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
       const [x, y] = await TauriCommands.getWindowPosition();
       updateSettings({ clockPosition: { x, y } });
     } catch {
-      // ignore
+      /* ignore */
     }
   }, [updateSettings]);
 
@@ -30,7 +30,6 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
     return () => clearInterval(id);
   }, []);
 
-  // Pulsing glow effect
   useEffect(() => {
     const id = setInterval(() => {
       setGlowIntensity(0.7 + Math.sin(Date.now() / 1000) * 0.3);
@@ -40,10 +39,11 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
 
   const activeTimer = timers.find((t) => t.status === "running");
   const cx = size / 2;
+  const cy = size / 2;
   const r = size / 2 - 6;
   const scale = size / 160;
 
-  // Time calculations
+  // Smooth time
   const ms = now.getMilliseconds();
   const s = now.getSeconds() + ms / 1000;
   const m = now.getMinutes() + s / 60;
@@ -55,14 +55,16 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
 
   const toXY = (angle: number, len: number) => ({
     x: cx + Math.cos((angle * Math.PI) / 180) * len,
-    y: cx + Math.sin((angle * Math.PI) / 180) * len,
+    y: cy + Math.sin((angle * Math.PI) / 180) * len,
   });
 
+  // Hand positions
   const hPos = toXY(hAngle, r * 0.55);
   const mPos = toXY(mAngle, r * 0.8);
-  const sPos = toXY(sAngle, r * 0.9);
+  // Second hand: tip forward, tail counterweight backward
+  const sTip = toXY(sAngle, r * 0.88);
+  const sTail = toXY(sAngle + 180, r * 0.25);
 
-  // Timer
   const timerPct = activeTimer
     ? 1 - activeTimer.remaining / activeTimer.duration
     : 0;
@@ -95,7 +97,6 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
             <stop offset="0%" stopColor="#0a0c0f" />
             <stop offset="100%" stopColor="#050608" />
           </radialGradient>
-
           <filter id="stealth-glow">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feMerge>
@@ -104,7 +105,6 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-
           <filter id="red-glow">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feFlood floodColor="#ff3333" result="color" />
@@ -116,14 +116,12 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
           </filter>
         </defs>
 
-        {/* Case - matte black */}
-        <circle cx={cx} cy={cx} r={r + 6} fill="#0d0f12" />
-        <circle cx={cx} cy={cx} r={r + 4} fill="#15181c" />
-
-        {/* Bezel - tactical markings */}
+        {/* Case rings */}
+        <circle cx={cx} cy={cy} r={r + 6} fill="#0d0f12" />
+        <circle cx={cx} cy={cy} r={r + 4} fill="#15181c" />
         <circle
           cx={cx}
-          cy={cx}
+          cy={cy}
           r={r + 2}
           fill="none"
           stroke="#1a1d22"
@@ -131,9 +129,9 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
         />
 
         {/* Dial */}
-        <circle cx={cx} cy={cx} r={r} fill="url(#stealth-dial)" />
+        <circle cx={cx} cy={cy} r={r} fill="url(#stealth-dial)" />
 
-        {/* Tachymeter scale */}
+        {/* Tachymeter ring */}
         {Array.from({ length: 12 }, (_, i) => {
           const angle = (i / 12) * 360 - 90;
           const start = toXY(angle, r - 2);
@@ -151,26 +149,24 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
           );
         })}
 
-        {/* Hour markers - minimal triangles */}
+        {/* Hour markers — minimal triangles */}
         {Array.from({ length: 12 }, (_, i) => {
           const angle = (i / 12) * 360 - 90;
           const pos = toXY(angle, r - 12);
           const isCardinal = i % 3 === 0;
-          const size_marker = (isCardinal ? 4 : 2) * scale;
-
+          const sz = (isCardinal ? 4 : 2) * scale;
           return (
-            <g key={i}>
-              <polygon
-                points={`${pos.x},${pos.y - size_marker} ${pos.x - size_marker * 0.6},${pos.y + size_marker * 0.4} ${pos.x + size_marker * 0.6},${pos.y + size_marker * 0.4}`}
-                fill={isCardinal ? "#ff3333" : "#3a4149"}
-                transform={`rotate(${angle + 90} ${pos.x} ${pos.y})`}
-                filter={isCardinal ? "url(#red-glow)" : undefined}
-              />
-            </g>
+            <polygon
+              key={i}
+              points={`${pos.x},${pos.y - sz} ${pos.x - sz * 0.6},${pos.y + sz * 0.4} ${pos.x + sz * 0.6},${pos.y + sz * 0.4}`}
+              fill={isCardinal ? "#ff3333" : "#3a4149"}
+              transform={`rotate(${angle + 90} ${pos.x} ${pos.y})`}
+              filter={isCardinal ? "url(#red-glow)" : undefined}
+            />
           );
         })}
 
-        {/* 24-hour military scale */}
+        {/* Brand text */}
         <text
           x={cx}
           y={cx - r * 0.3}
@@ -186,43 +182,44 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
         {/* Timer ring */}
         {activeTimer && (
           <g>
-            {/* Background track */}
             <circle
               cx={cx}
-              cy={cx}
+              cy={cy}
               r={r - 18}
               fill="none"
               stroke="#1a1d22"
               strokeWidth={4}
             />
-            {/* Progress */}
             <circle
               cx={cx}
-              cy={cx}
+              cy={cy}
               r={r - 18}
               fill="none"
               stroke={activeTimer.remaining <= 60 ? "#ff3333" : "#ff6600"}
               strokeWidth={4}
               strokeDasharray={`${2 * Math.PI * (r - 18) * timerPct} ${2 * Math.PI * (r - 18)}`}
               strokeLinecap="round"
-              transform={`rotate(-90 ${cx} ${cx})`}
+              transform={`rotate(-90 ${cx} ${cy})`}
               filter="url(#red-glow)"
               style={{ transition: "stroke-dasharray 0.5s ease" }}
             />
           </g>
         )}
 
-        {/* Hour hand - broad sword */}
+        {/* Hour hand — broad sword blade */}
         <g filter="url(#stealth-glow)">
           <path
-            d={`M ${cx} ${cx} L ${toXY(hAngle + 15, r * 0.15).x} ${toXY(hAngle + 15, r * 0.15).y} L ${hPos.x} ${hPos.y} L ${toXY(hAngle - 15, r * 0.15).x} ${toXY(hAngle - 15, r * 0.15).y} Z`}
+            d={`M ${cx} ${cy}
+                L ${toXY(hAngle + 15, r * 0.15).x} ${toXY(hAngle + 15, r * 0.15).y}
+                L ${hPos.x} ${hPos.y}
+                L ${toXY(hAngle - 15, r * 0.15).x} ${toXY(hAngle - 15, r * 0.15).y} Z`}
             fill="#2a2f35"
             stroke="#3a4149"
             strokeWidth={1}
           />
           <line
             x1={cx}
-            y1={cx}
+            y1={cy}
             x2={hPos.x}
             y2={hPos.y}
             stroke="#4a5568"
@@ -230,17 +227,20 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
           />
         </g>
 
-        {/* Minute hand - broad sword */}
+        {/* Minute hand — broad sword blade */}
         <g filter="url(#stealth-glow)">
           <path
-            d={`M ${cx} ${cx} L ${toXY(mAngle + 10, r * 0.15).x} ${toXY(mAngle + 10, r * 0.15).y} L ${mPos.x} ${mPos.y} L ${toXY(mAngle - 10, r * 0.15).x} ${toXY(mAngle - 10, r * 0.15).y} Z`}
+            d={`M ${cx} ${cy}
+                L ${toXY(mAngle + 10, r * 0.15).x} ${toXY(mAngle + 10, r * 0.15).y}
+                L ${mPos.x} ${mPos.y}
+                L ${toXY(mAngle - 10, r * 0.15).x} ${toXY(mAngle - 10, r * 0.15).y} Z`}
             fill="#2a2f35"
             stroke="#3a4149"
             strokeWidth={1}
           />
           <line
             x1={cx}
-            y1={cx}
+            y1={cy}
             x2={mPos.x}
             y2={mPos.y}
             stroke="#4a5568"
@@ -248,59 +248,72 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
           />
         </g>
 
-        {/* Second hand - tactical red */}
+        {/* Second hand — full needle through center: tail → cx,cy → tip */}
         <g filter="url(#red-glow)">
+          {/* Counterweight tail */}
           <line
             x1={cx}
-            y1={cx + r * 0.25}
-            x2={sPos.x}
-            y2={sPos.y}
+            y1={cy}
+            x2={sTail.x}
+            y2={sTail.y}
             stroke="#ff3333"
-            strokeWidth={1.5}
+            strokeWidth={2.5 * scale}
+            strokeLinecap="round"
             opacity={glowIntensity}
           />
-          <circle cx={sPos.x} cy={sPos.y} r={2.5 * scale} fill="#ff3333" />
-        </g>
-
-        {/* Center - target reticle */}
-        <g>
-          <circle
-            cx={cx}
-            cy={cx}
-            r={8 * scale}
-            fill="none"
-            stroke="#2a2f35"
-            strokeWidth={2}
-          />
-          <circle cx={cx} cy={cx} r={6 * scale} fill="#0d0f12" />
-          <circle
-            cx={cx}
-            cy={cx}
-            r={2 * scale}
-            fill="#ff3333"
-            filter="url(#red-glow)"
-            opacity={glowIntensity}
-          />
-          {/* Crosshair */}
-          <line
-            x1={cx - 4 * scale}
-            y1={cx}
-            x2={cx + 4 * scale}
-            y2={cx}
-            stroke="#2a2f35"
-            strokeWidth={1}
-          />
+          {/* Main needle to tip */}
           <line
             x1={cx}
-            y1={cx - 4 * scale}
-            x2={cx}
-            y2={cx + 4 * scale}
-            stroke="#2a2f35"
-            strokeWidth={1}
+            y1={cy}
+            x2={sTip.x}
+            y2={sTip.y}
+            stroke="#ff3333"
+            strokeWidth={1.5 * scale}
+            strokeLinecap="round"
+            opacity={glowIntensity}
           />
+          {/* Tip dot */}
+          <circle cx={sTip.x} cy={sTip.y} r={2.5 * scale} fill="#ff3333" />
         </g>
 
-        {/* Digital time overlay */}
+        {/* Center — target reticle */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={8 * scale}
+          fill="none"
+          stroke="#2a2f35"
+          strokeWidth={2}
+        />
+        <circle cx={cx} cy={cy} r={6 * scale} fill="#0d0f12" />
+        {/* Crosshair lines */}
+        <line
+          x1={cx - 4 * scale}
+          y1={cy}
+          x2={cx + 4 * scale}
+          y2={cy}
+          stroke="#2a2f35"
+          strokeWidth={1}
+        />
+        <line
+          x1={cx}
+          y1={cy - 4 * scale}
+          x2={cx}
+          y2={cy + 4 * scale}
+          stroke="#2a2f35"
+          strokeWidth={1}
+        />
+        {/* Center red pip — on top of everything */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={2 * scale}
+          fill="#ff3333"
+          filter="url(#red-glow)"
+          opacity={glowIntensity}
+        />
+
+        {/* Digital time readout */}
         <text
           x={cx}
           y={cx + r * 0.4}
@@ -318,7 +331,6 @@ export const StealthOverlay: React.FC<OverlayProps> = ({ size }) => {
         </text>
       </svg>
 
-      {/* Context Menu */}
       {showMenu && (
         <div
           style={{
