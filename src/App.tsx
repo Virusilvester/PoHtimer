@@ -66,7 +66,7 @@ const App: React.FC = () => {
 
   const performClose = (action: "minimize" | "exit") => {
     if (action === "exit") return void TauriCommands.exitApp();
-    return void TauriCommands.windowClose();
+    setMinimized(true);
   };
 
   const handleCloseRequest = () => {

@@ -70,7 +70,196 @@ export const SettingsView: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [settings.autostart, updateSettings]);
+  }, [updateSettings]);
+
+  const renderDigitalPreview = (style: typeof settings.digitalWatchStyle) => {
+    const baseStyle: React.CSSProperties = {
+      width: 70,
+      height: 44,
+      borderRadius: 8,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: 12,
+      fontFamily: "var(--font-mono)",
+      letterSpacing: "0.06em",
+      position: "relative",
+      overflow: "hidden",
+    };
+
+    if (style === "minimal") {
+      return (
+        <div
+          style={{
+            ...baseStyle,
+            border: "1px dashed rgba(255,255,255,0.18)",
+            color: "rgba(240,242,245,0.5)",
+          }}
+        >
+          12:34
+        </div>
+      );
+    }
+    if (style === "glass") {
+      return (
+        <div
+          style={{
+            ...baseStyle,
+            background: "rgba(10,12,16,0.65)",
+            border: "1px solid rgba(255,185,0,0.35)",
+            color: "var(--accent)",
+            boxShadow: "0 0 12px rgba(255,185,0,0.25)",
+          }}
+        >
+          12:34
+        </div>
+      );
+    }
+    if (style === "panel") {
+      return (
+        <div
+          style={{
+            ...baseStyle,
+            background: "rgba(20,24,32,0.95)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            color: "rgba(240,242,245,0.85)",
+          }}
+        >
+          12:34
+        </div>
+      );
+    }
+    if (style === "edge") {
+      return (
+        <div
+          style={{
+            ...baseStyle,
+            background: "rgba(8,10,14,0.9)",
+            border: "1px solid rgba(255,255,255,0.22)",
+            color: "rgba(240,242,245,0.85)",
+          }}
+        >
+          12:34
+        </div>
+      );
+    }
+    if (style === "matrix") {
+      return (
+        <div
+          style={{
+            ...baseStyle,
+            background: "#000",
+            border: "1px solid #003300",
+            color: "#00ff00",
+            textShadow: "0 0 8px #00ff00",
+          }}
+        >
+          12:34
+        </div>
+      );
+    }
+    if (style === "segment") {
+      return (
+        <div
+          style={{
+            ...baseStyle,
+            background: "linear-gradient(145deg, #0d1016, #080a0e)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            color: "var(--accent)",
+            boxShadow: "inset 0 0 8px rgba(255,185,0,0.25)",
+          }}
+        >
+          88:88
+        </div>
+      );
+    }
+    return (
+      <div
+        style={{
+          ...baseStyle,
+          background: "rgba(14,18,26,0.95)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          color: "var(--accent)",
+        }}
+      >
+        12:34
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+            borderBottom: "1px solid rgba(0,0,0,0.5)",
+            opacity: 0.6,
+          }}
+        />
+      </div>
+    );
+  };
+
+  const renderAnalogPreview = (style: typeof settings.analogWatchStyle) => {
+    const stroke =
+      style === "neon"
+        ? "var(--accent-strong)"
+        : style === "halo"
+          ? "rgba(255,185,0,0.6)"
+          : "rgba(255,255,255,0.25)";
+    const fill =
+      style === "minimal"
+        ? "rgba(10,12,16,0.35)"
+        : style === "stealth"
+          ? "#0d0f12"
+          : style === "swiss"
+            ? "rgba(15,18,24,0.95)"
+            : "rgba(10,12,16,0.75)";
+    return (
+      <div
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: "50%",
+          background: fill,
+          border: `1px solid ${stroke}`,
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            width: 2,
+            height: 14,
+            background: "var(--accent)",
+            top: 8,
+            left: "50%",
+            transform: "translateX(-50%)",
+            borderRadius: 2,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            width: 14,
+            height: 2,
+            background: "rgba(255,255,255,0.7)",
+            top: "50%",
+            left: 10,
+            borderRadius: 2,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            width: 4,
+            height: 4,
+            borderRadius: "50%",
+            background: "var(--accent)",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%,-50%)",
+          }}
+        />
+      </div>
+    );
+  };
 
   return (
     <div style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
@@ -211,7 +400,7 @@ export const SettingsView: React.FC = () => {
           label="Digital watch style"
           description="Choose a digital overlay theme"
           control={
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {(
                 [
                   "minimal",
@@ -227,9 +416,9 @@ export const SettingsView: React.FC = () => {
                   key={v}
                   onClick={() => updateSettings({ digitalWatchStyle: v })}
                   style={{
-                    padding: "4px 12px",
+                    padding: "6px 8px",
                     borderRadius: 6,
-                    fontSize: 11,
+                    fontSize: 10,
                     cursor: "pointer",
                     background:
                       settings.digitalWatchStyle === v
@@ -241,9 +430,14 @@ export const SettingsView: React.FC = () => {
                         ? "var(--accent)"
                         : "var(--text-muted)",
                     textTransform: "capitalize",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    alignItems: "center",
                   }}
                 >
-                  {v}
+                  {renderDigitalPreview(v)}
+                  <span style={{ textTransform: "capitalize" }}>{v}</span>
                 </button>
               ))}
             </div>
@@ -253,7 +447,7 @@ export const SettingsView: React.FC = () => {
           label="Analog watch style"
           description="Choose an analog overlay theme"
           control={
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {(
                 [
                   "classic",
@@ -269,9 +463,9 @@ export const SettingsView: React.FC = () => {
                   key={v}
                   onClick={() => updateSettings({ analogWatchStyle: v })}
                   style={{
-                    padding: "4px 12px",
+                    padding: "6px 8px",
                     borderRadius: 6,
-                    fontSize: 11,
+                    fontSize: 10,
                     cursor: "pointer",
                     background:
                       settings.analogWatchStyle === v
@@ -283,9 +477,14 @@ export const SettingsView: React.FC = () => {
                         ? "var(--accent)"
                         : "var(--text-muted)",
                     textTransform: "capitalize",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    alignItems: "center",
                   }}
                 >
-                  {v}
+                  {renderAnalogPreview(v)}
+                  <span style={{ textTransform: "capitalize" }}>{v}</span>
                 </button>
               ))}
             </div>

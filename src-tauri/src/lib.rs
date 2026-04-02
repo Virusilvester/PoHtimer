@@ -457,7 +457,7 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
         use winreg::enums::HKEY_CURRENT_USER;
         use winreg::RegKey;
 
-        const VALUE_NAME: &str = "PoHTimer";
+        const VALUE_NAME: &str = "PoHtimer";
         const RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
@@ -487,7 +487,7 @@ fn get_autostart_enabled() -> Result<bool, String> {
         use winreg::enums::HKEY_CURRENT_USER;
         use winreg::RegKey;
 
-        const VALUE_NAME: &str = "PoHTimer";
+        const VALUE_NAME: &str = "PoHtimer";
         const RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
