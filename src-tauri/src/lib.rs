@@ -557,7 +557,7 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
             std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(3500));
+                std::thread::sleep(Duration::from_millis(5000));
                 if let Some(main) = app_handle.get_webview_window("main") {
                     if !main.is_visible().unwrap_or(true) {
                         let _ = main.show();
