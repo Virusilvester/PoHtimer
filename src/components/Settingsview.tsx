@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useStore } from "../store";
+import { TauriCommands } from "../tauricommands";
 import { Card, Toggle, Slider, SectionHeader } from "./ui";
 
 const SettingRow: React.FC<{
@@ -55,6 +56,21 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings } = useStore();
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      const enabled = await TauriCommands.getAutostartEnabled().catch(
+        () => null,
+      );
+      if (!mounted || enabled == null) return;
+      if (enabled !== settings.autostart) {
+        updateSettings({ autostart: enabled });
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [settings.autostart, updateSettings]);
 
   return (
     <div style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
@@ -196,7 +212,17 @@ export const SettingsView: React.FC = () => {
           description="Choose a digital overlay theme"
           control={
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(["minimal", "glass", "panel", "edge"] as const).map((v) => (
+              {(
+                [
+                  "minimal",
+                  "glass",
+                  "panel",
+                  "edge",
+                  "matrix",
+                  "segment",
+                  "flip",
+                ] as const
+              ).map((v) => (
                 <button
                   key={v}
                   onClick={() => updateSettings({ digitalWatchStyle: v })}
@@ -228,7 +254,17 @@ export const SettingsView: React.FC = () => {
           description="Choose an analog overlay theme"
           control={
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {(["classic", "neon", "minimal", "halo"] as const).map((v) => (
+              {(
+                [
+                  "classic",
+                  "neon",
+                  "minimal",
+                  "halo",
+                  "swiss",
+                  "stealth",
+                  "orbital",
+                ] as const
+              ).map((v) => (
                 <button
                   key={v}
                   onClick={() => updateSettings({ analogWatchStyle: v })}

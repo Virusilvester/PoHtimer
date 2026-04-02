@@ -3,6 +3,12 @@ import { useStore } from "../store";
 import { TauriCommands } from "../tauricommands";
 import { AnalogOverlay } from "./overlay/AnalogOverlay";
 import { DigitalOverlay } from "./overlay/DigitalOverlay";
+import { FlipClockOverlay } from "./overlay/FlipClockOverlay";
+import { MatrixOverlay } from "./overlay/MatrixOverlay";
+import { SegmentDisplayOverlay } from "./overlay/SegmentDisplayOverlay";
+import { SwissOverlay } from "./overlay/SwissOverlay";
+import { StealthOverlay } from "./overlay/StealthOverlay";
+import { OrbitalOverlay } from "./overlay/OrbitalOverlay";
 
 export const DesktopOverlay: React.FC = () => {
   const { settings, timers } = useStore();
@@ -52,7 +58,21 @@ export const DesktopOverlay: React.FC = () => {
       }}
     >
       {settings.minimizeMode === "digital" ? (
-        <DigitalOverlay size={size} />
+        settings.digitalWatchStyle === "matrix" ? (
+          <MatrixOverlay size={size} />
+        ) : settings.digitalWatchStyle === "segment" ? (
+          <SegmentDisplayOverlay size={size} />
+        ) : settings.digitalWatchStyle === "flip" ? (
+          <FlipClockOverlay size={size} />
+        ) : (
+          <DigitalOverlay size={size} />
+        )
+      ) : settings.analogWatchStyle === "swiss" ? (
+        <SwissOverlay size={size} />
+      ) : settings.analogWatchStyle === "stealth" ? (
+        <StealthOverlay size={size} />
+      ) : settings.analogWatchStyle === "orbital" ? (
+        <OrbitalOverlay size={size} />
       ) : (
         <AnalogOverlay size={size} />
       )}
