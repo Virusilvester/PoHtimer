@@ -1,6 +1,6 @@
 [package]
 name = "PoHtimer"
-version = "0.1.3"
+version = "0.1.4"
 description = "Power Scheduling Utility for Windows"
 authors = ["ViruSilvester"]
 edition = "2021"
