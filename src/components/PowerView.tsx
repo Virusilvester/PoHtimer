@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { type PowerAction } from "../store";
 import { ACTION_META } from "../utils";
-import { Card, Btn, SectionHeader } from "./ui";
+import { Card, SectionHeader } from "./ui";
 // Use the shared confirm modal instead of the local duplicate
 import { ActionConfirmModal } from "./ActionConfirmModal";
 import { TauriCommands } from "../tauricommands";
