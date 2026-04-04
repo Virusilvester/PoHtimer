@@ -10,7 +10,49 @@ const NAV: { id: View; label: string; icon: string }[] = [
   { id: "settings", label: "Settings", icon: "⚙" },
 ];
 
+// Injected once into <head> so Sidebar re-renders don't duplicate the tag
+let _styleInjected = false;
+function injectSidebarStyles() {
+  if (_styleInjected || typeof document === "undefined") return;
+  _styleInjected = true;
+  const el = document.createElement("style");
+  el.textContent = `
+    .sidebar-nav-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: var(--radius-md);
+      background: transparent; border: 1px solid transparent;
+      color: var(--text-secondary); font-size: 13px; font-weight: 400;
+      cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+      text-align: left; position: relative; width: 100%;
+    }
+    .sidebar-nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .sidebar-nav-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--border-accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .sidebar-minimize-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: var(--radius-md);
+      background: transparent; border: 1px solid transparent;
+      color: var(--text-muted); font-size: 12px;
+      cursor: pointer; transition: background 0.15s, color 0.15s; width: 100%;
+    }
+    .sidebar-minimize-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+  `;
+  document.head.appendChild(el);
+}
+
 export const Sidebar: React.FC = () => {
+  injectSidebarStyles();
+
   const { view, setView, setMinimized, timers, batteryRules } = useStore();
   const runningTimers = timers.filter((t) => t.status === "running").length;
   const activeBatteryRules = batteryRules.filter((r) => r.enabled).length;
@@ -97,38 +139,7 @@ export const Sidebar: React.FC = () => {
             <button
               key={id}
               onClick={() => setView(id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "9px 12px",
-                borderRadius: "var(--radius-md)",
-                background: active ? "var(--accent-dim)" : "transparent",
-                border: `1px solid ${active ? "var(--border-accent)" : "transparent"}`,
-                color: active ? "var(--accent)" : "var(--text-secondary)",
-                fontSize: 13,
-                fontWeight: active ? 600 : 400,
-                cursor: "pointer",
-                transition: "all 0.15s",
-                textAlign: "left",
-                position: "relative",
-              }}
-              onMouseEnter={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    "var(--bg-hover)";
-                  (e.currentTarget as HTMLButtonElement).style.color =
-                    "var(--text-primary)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    "transparent";
-                  (e.currentTarget as HTMLButtonElement).style.color =
-                    "var(--text-secondary)";
-                }
-              }}
+              className={`sidebar-nav-btn${active ? " active" : ""}`}
             >
               <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>
                 {icon}
@@ -167,31 +178,7 @@ export const Sidebar: React.FC = () => {
       >
         <button
           onClick={() => setMinimized(true)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "9px 12px",
-            borderRadius: "var(--radius-md)",
-            background: "transparent",
-            border: "1px solid transparent",
-            color: "var(--text-muted)",
-            fontSize: 12,
-            cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background =
-              "var(--bg-hover)";
-            (e.currentTarget as HTMLButtonElement).style.color =
-              "var(--text-primary)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background =
-              "transparent";
-            (e.currentTarget as HTMLButtonElement).style.color =
-              "var(--text-muted)";
-          }}
+          className="sidebar-minimize-btn"
         >
           <span style={{ fontSize: 14 }}>⊟</span>
           Minimize to overlay

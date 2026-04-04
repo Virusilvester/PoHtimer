@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { type PowerAction } from "../store";
 import { ACTION_META } from "../utils";
 import { Card, Btn, SectionHeader } from "./ui";
+// Use the shared confirm modal instead of the local duplicate
+import { ActionConfirmModal } from "./ActionConfirmModal";
 import { TauriCommands } from "../tauricommands";
 
 type SystemInfo = {
@@ -43,6 +45,7 @@ const PowerCard: React.FC<{
   if (action === "none") return null;
   return (
     <button
+      className="power-action-card"
       onClick={() => onExecute(action)}
       style={{
         display: "flex",
@@ -57,20 +60,10 @@ const PowerCard: React.FC<{
         transition: "all 0.2s",
         position: "relative",
         overflow: "hidden",
-      }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget;
-        el.style.background = `${meta.color}12`;
-        el.style.borderColor = `${meta.color}50`;
-        el.style.transform = "translateY(-2px)";
-        el.style.boxShadow = `0 8px 24px ${meta.color}20`;
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget;
-        el.style.background = "var(--bg-surface)";
-        el.style.borderColor = "var(--border)";
-        el.style.transform = "none";
-        el.style.boxShadow = "none";
+        // CSS custom props used for hover — avoids inline JS mutation
+        ["--card-hover-bg" as string]: `${meta.color}12`,
+        ["--card-hover-border" as string]: `${meta.color}50`,
+        ["--card-hover-shadow" as string]: `0 8px 24px ${meta.color}20`,
       }}
     >
       <div
@@ -106,129 +99,6 @@ const PowerCard: React.FC<{
         {meta.description}
       </div>
     </button>
-  );
-};
-
-const CountdownConfirm: React.FC<{
-  action: PowerAction;
-  onConfirm: () => void;
-  onCancel: () => void;
-}> = ({ action, onConfirm, onCancel }) => {
-  const [count, setCount] = useState(5);
-  const meta = ACTION_META[action];
-
-  React.useEffect(() => {
-    if (count <= 0) {
-      onConfirm();
-      return;
-    }
-    const id = setTimeout(() => setCount((c) => c - 1), 1000);
-    return () => clearTimeout(id);
-  }, [count]);
-
-  const circ = 2 * Math.PI * 32;
-  const offset = circ * (count / 5);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.75)",
-        backdropFilter: "blur(6px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 200,
-        animation: "slide-up 0.2s ease",
-      }}
-    >
-      <div
-        style={{
-          background: "var(--bg-surface)",
-          border: `1px solid ${meta.color}50`,
-          borderRadius: "var(--radius-xl)",
-          padding: "40px",
-          width: 380,
-          textAlign: "center",
-          boxShadow: `0 20px 60px rgba(0,0,0,0.7), 0 0 40px ${meta.color}20`,
-        }}
-      >
-        {/* Countdown ring */}
-        <div
-          style={{
-            position: "relative",
-            display: "inline-block",
-            marginBottom: 24,
-          }}
-        >
-          <svg width={80} height={80}>
-            <circle
-              cx={40}
-              cy={40}
-              r={32}
-              fill="none"
-              stroke="var(--bg-overlay)"
-              strokeWidth={6}
-            />
-            <circle
-              cx={40}
-              cy={40}
-              r={32}
-              fill="none"
-              stroke={meta.color}
-              strokeWidth={6}
-              strokeDasharray={circ}
-              strokeDashoffset={circ - offset}
-              strokeLinecap="round"
-              transform="rotate(-90 40 40)"
-              style={{ transition: "stroke-dashoffset 1s linear" }}
-            />
-            <text
-              x={40}
-              y={45}
-              textAnchor="middle"
-              fontSize={24}
-              fontFamily="var(--font-mono)"
-              fontWeight="700"
-              fill={meta.color}
-            >
-              {count}
-            </text>
-          </svg>
-        </div>
-
-        <div style={{ fontSize: 28, marginBottom: 8 }}>{meta.icon}</div>
-        <h2
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            color: "var(--text-primary)",
-            marginBottom: 8,
-          }}
-        >
-          {meta.label} in {count}s
-        </h2>
-        <p
-          style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 28 }}
-        >
-          {meta.description}
-        </p>
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <Btn variant="danger" style={{ flex: 1 }} onClick={onCancel}>
-            Cancel
-          </Btn>
-          <Btn
-            variant="primary"
-            style={{ flex: 1, background: meta.color, color: "#0a0c10" }}
-            onClick={onConfirm}
-          >
-            {meta.label} Now
-          </Btn>
-        </div>
-      </div>
-    </div>
   );
 };
 
@@ -318,14 +188,33 @@ export const PowerView: React.FC = () => {
     }
   };
 
-  const actions: PowerAction[] = [
-    "shutdown",
-    "restart",
-    "hibernate",
-    "sleep",
-    "lock",
-    "logoff",
-  ];
+  // Memoised so the array reference is stable across renders
+  const actions: PowerAction[] = useMemo(
+    () => ["shutdown", "restart", "hibernate", "sleep", "lock", "logoff"],
+    [],
+  );
+
+  // Memoised sys info rows to avoid recreating the array each render
+  const sysinfoRows = useMemo(
+    () => [
+      { label: "OS", value: sysinfo?.os ?? "Loading..." },
+      {
+        label: "Uptime",
+        value: sysinfo ? formatUptime(sysinfo.uptimeSeconds) : "Loading...",
+      },
+      {
+        label: "CPU Usage",
+        value: sysinfo ? `${Math.round(sysinfo.cpuUsage)}%` : "Loading...",
+      },
+      {
+        label: "Memory",
+        value: sysinfo
+          ? formatMemory(sysinfo.memoryUsed, sysinfo.memoryTotal)
+          : "Loading...",
+      },
+    ],
+    [sysinfo],
+  );
 
   return (
     <div style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
@@ -425,7 +314,7 @@ export const PowerView: React.FC = () => {
               border: "1px solid var(--danger)30",
             }}
           >
-            âš  {sysinfoError}
+            ⚠ {sysinfoError}
           </div>
         )}
         <div
@@ -435,23 +324,7 @@ export const PowerView: React.FC = () => {
             gap: 12,
           }}
         >
-          {[
-            { label: "OS", value: sysinfo?.os ?? "Loading..." },
-            {
-              label: "Uptime",
-              value: sysinfo ? formatUptime(sysinfo.uptimeSeconds) : "Loading...",
-            },
-            {
-              label: "CPU Usage",
-              value: sysinfo ? `${Math.round(sysinfo.cpuUsage)}%` : "Loading...",
-            },
-            {
-              label: "Memory",
-              value: sysinfo
-                ? formatMemory(sysinfo.memoryUsed, sysinfo.memoryTotal)
-                : "Loading...",
-            },
-          ].map(({ label, value }) => (
+          {sysinfoRows.map(({ label, value }) => (
             <div
               key={label}
               style={{
@@ -485,9 +358,13 @@ export const PowerView: React.FC = () => {
         </div>
       </Card>
 
+      {/* Replaced local CountdownConfirm with shared ActionConfirmModal */}
       {confirming && (
-        <CountdownConfirm
+        <ActionConfirmModal
           action={confirming}
+          source="manual"
+          label="Power action"
+          seconds={5}
           onConfirm={() => executeAction(confirming)}
           onCancel={() => setConfirming(null)}
         />

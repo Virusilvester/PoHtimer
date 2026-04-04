@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useStore, type PowerAction } from "../store";
 import { ActionBadge, Btn, SectionHeader, EmptyState } from "./ui";
 import { ACTION_META } from "../utils";
@@ -7,11 +7,16 @@ export const HistoryView: React.FC = () => {
   const { history, clearHistory } = useStore();
   const [filter, setFilter] = useState<PowerAction | "all">("all");
 
-  const filtered =
-    filter === "all" ? history : history.filter((h) => h.action === filter);
-  const actions = Array.from(
-    new Set(history.map((h) => h.action)),
-  ) as PowerAction[];
+  // Memoised so filter chips and list don't recompute on unrelated renders
+  const actions = useMemo(
+    () => Array.from(new Set(history.map((h) => h.action))) as PowerAction[],
+    [history],
+  );
+
+  const filtered = useMemo(
+    () => (filter === "all" ? history : history.filter((h) => h.action === filter)),
+    [history, filter],
+  );
 
   return (
     <div
@@ -24,7 +29,7 @@ export const HistoryView: React.FC = () => {
     >
       <SectionHeader
         title="Event History"
-        subtitle="Log of all triggered power actions"
+        subtitle={`Log of all triggered power actions${history.length >= 200 ? " · showing last 200" : ""}`}
         action={
           history.length > 0 ? (
             <Btn size="sm" variant="danger" onClick={clearHistory}>
@@ -90,7 +95,7 @@ export const HistoryView: React.FC = () => {
       <div style={{ flex: 1, overflowY: "auto" }}>
         {filtered.length === 0 ? (
           <EmptyState
-            icon="â‰¡"
+            icon="≡"
             title="No events yet"
             subtitle="Events will appear here when timers or battery rules trigger"
           />
@@ -172,9 +177,14 @@ export const HistoryView: React.FC = () => {
                           gap: 8,
                         }}
                       >
+                        {/* Fixed: was rendering garbled bytes like â—· âš¡ */}
                         <span>
                           via{" "}
-                          {h.source === "timer" ? "â—· Timer" : h.source === "battery" ? "âš¡ Battery rule" : "â—· System"}
+                          {h.source === "timer"
+                            ? "▶ Timer"
+                            : h.source === "battery"
+                              ? "⚡ Battery rule"
+                              : "▶ System"}
                         </span>
                       </div>
                     </div>

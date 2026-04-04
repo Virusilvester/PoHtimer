@@ -25,4 +25,3 @@ export async function executePowerAction(action: PowerAction): Promise<void> {
       return;
   }
 }
-

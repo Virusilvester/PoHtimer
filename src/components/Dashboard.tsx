@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { useStore } from "../store";
+import React, { useEffect, useMemo, useState } from "react";
+import { useStore, type TimerEntry } from "../store";
 import { Card, ActionBadge, Btn } from "./ui";
 import { formatDuration, formatDurationLong, ACTION_META } from "../utils";
 
-const LiveClock: React.FC = () => {
+// Isolated clock — only this component re-renders every second
+const LiveClock = React.memo(() => {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -38,10 +39,11 @@ const LiveClock: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
-const BatteryWidget: React.FC = () => {
-  const { battery } = useStore();
+// Isolated battery widget — only re-renders when battery state changes
+const BatteryWidget = React.memo(() => {
+  const battery = useStore((s) => s.battery);
   const pct = battery.level ?? 0;
   const onAc = battery.plugged;
   const hasBattery = battery.present && battery.level != null;
@@ -110,12 +112,11 @@ const BatteryWidget: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
-const ActiveTimerCard: React.FC<{ id: string }> = ({ id }) => {
-  const { timers, toggleTimer, removeTimer } = useStore();
-  const timer = timers.find((t) => t.id === id);
-  if (!timer) return null;
+// Receives timer as prop — avoids O(n) find per card on every render
+const ActiveTimerCard = React.memo<{ timer: TimerEntry }>(({ timer }) => {
+  const { toggleTimer, removeTimer } = useStore();
   const isSchedule = timer.kind === "schedule" && !!timer.scheduleTime;
   const nextRun =
     isSchedule && timer.nextFireAt
@@ -137,7 +138,6 @@ const ActiveTimerCard: React.FC<{ id: string }> = ({ id }) => {
         display: "flex",
         alignItems: "center",
         gap: 12,
-        animation: urgent ? "none" : undefined,
       }}
     >
       {/* Progress ring */}
@@ -216,7 +216,7 @@ const ActiveTimerCard: React.FC<{ id: string }> = ({ id }) => {
       </div>
       <div style={{ display: "flex", gap: 4 }}>
         <button
-          onClick={() => toggleTimer(id)}
+          onClick={() => toggleTimer(timer.id)}
           style={{
             width: 28,
             height: 28,
@@ -234,7 +234,7 @@ const ActiveTimerCard: React.FC<{ id: string }> = ({ id }) => {
           {timer.status === "running" ? "⏸" : "▶"}
         </button>
         <button
-          onClick={() => removeTimer(id)}
+          onClick={() => removeTimer(timer.id)}
           style={{
             width: 28,
             height: 28,
@@ -254,15 +254,25 @@ const ActiveTimerCard: React.FC<{ id: string }> = ({ id }) => {
       </div>
     </div>
   );
-};
+});
 
 export const Dashboard: React.FC = () => {
   const { timers, batteryRules, history, setView } = useStore();
-  const active = timers.filter(
-    (t) => t.status === "running" || t.status === "paused",
+
+  // Memoised derived data — not recomputed unless source arrays change
+  const active = useMemo(
+    () => timers.filter((t) => t.status === "running" || t.status === "paused"),
+    [timers],
   );
-  const activeBatteryRules = batteryRules.filter((r) => r.enabled);
-  const recentHistory = history.slice(0, 3);
+  const activeBatteryRules = useMemo(
+    () => batteryRules.filter((r) => r.enabled),
+    [batteryRules],
+  );
+  const eventsToday = useMemo(
+    () => history.filter((h) => Date.now() - h.timestamp < 86_400_000).length,
+    [history],
+  );
+  const recentHistory = useMemo(() => history.slice(0, 3), [history]);
 
   return (
     <div
@@ -317,8 +327,7 @@ export const Dashboard: React.FC = () => {
           },
           {
             label: "Events Today",
-            value: history.filter((h) => Date.now() - h.timestamp < 86400000)
-              .length,
+            value: eventsToday,
             icon: "≡",
             color: "var(--success)",
             action: () => setView("history"),
@@ -400,8 +409,9 @@ export const Dashboard: React.FC = () => {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {/* Pass timer object directly — no find() lookup in each card */}
             {active.map((t) => (
-              <ActiveTimerCard key={t.id} id={t.id} />
+              <ActiveTimerCard key={t.id} timer={t} />
             ))}
           </div>
         )}
@@ -440,6 +450,7 @@ export const Dashboard: React.FC = () => {
             return (
               <button
                 key={action}
+                className="quick-action-btn"
                 onClick={() => setView("power")}
                 style={{
                   display: "flex",
@@ -455,18 +466,6 @@ export const Dashboard: React.FC = () => {
                   transition: "all 0.15s",
                   fontSize: 11,
                   fontWeight: 500,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    `${meta.color}15`;
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    `${meta.color}50`;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    "var(--bg-elevated)";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    "var(--border)";
                 }}
               >
                 <span style={{ fontSize: 20 }}>{meta.icon}</span>

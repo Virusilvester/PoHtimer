@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useStore, type TimerEntry } from "../store";
+import { useStore, type PowerAction, type TimerEntry } from "../store";
 import {
   Card,
   Btn,
@@ -25,7 +25,7 @@ import {
   nextScheduleOccurrence,
 } from "../schedule";
 
-const TimerProgressRing: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
+const TimerProgressRing = React.memo<{ timer: TimerEntry }>(({ timer }) => {
   const r = 52;
   const circ = 2 * Math.PI * r;
   const pct = timer.duration > 0 ? 1 - timer.remaining / timer.duration : 0;
@@ -102,9 +102,9 @@ const TimerProgressRing: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
       )}
     </svg>
   );
-};
+});
 
-const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
+const TimerCard = React.memo<{ timer: TimerEntry }>(({ timer }) => {
   const { toggleTimer, removeTimer, resetTimer } = useStore();
   const isSchedule = timer.kind === "schedule" && !!timer.scheduleTime;
   const nextRun =
@@ -184,7 +184,7 @@ const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
           </div>
           {isSchedule && (
             <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              At {timer.scheduleTime} - {formatScheduleDays(timer.scheduleDays)}
+              At {timer.scheduleTime} — {formatScheduleDays(timer.scheduleDays)}
               {nextRun && (
                 <span style={{ marginLeft: 6 }}>
                   (next{" "}
@@ -213,9 +213,7 @@ const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
                 height: "100%",
                 width: `${timer.duration > 0 ? (1 - timer.remaining / timer.duration) * 100 : 0}%`,
                 background:
-                  timer.status === "expired"
-                    ? "var(--success)"
-                    : "var(--accent)",
+                  timer.status === "expired" ? "var(--success)" : "var(--accent)",
                 borderRadius: 2,
                 transition: "width 1s linear",
               }}
@@ -242,11 +240,7 @@ const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
                 ↺ Restart
               </Btn>
             )}
-            <Btn
-              size="sm"
-              variant="ghost"
-              onClick={() => resetTimer(timer.id)}
-            >
+            <Btn size="sm" variant="ghost" onClick={() => resetTimer(timer.id)}>
               ⟳ Reset
             </Btn>
             <Btn
@@ -261,18 +255,17 @@ const TimerCard: React.FC<{ timer: TimerEntry }> = ({ timer }) => {
       </div>
     </Card>
   );
-};
+});
 
 const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { addTimer } = useStore();
   const [label, setLabel] = useState("");
   const [timeStr, setTimeStr] = useState("");
-  const [timerType, setTimerType] = useState<"duration" | "schedule">(
-    "duration",
-  );
+  const [timerType, setTimerType] = useState<"duration" | "schedule">("duration");
   const [scheduleTime, setScheduleTime] = useState("10:00");
   const [scheduleDays, setScheduleDays] = useState<number[]>(ALL_DAYS);
-  const [action, setAction] = useState<any>("shutdown");
+  // Fixed: was typed as `any`
+  const [action, setAction] = useState<PowerAction>("shutdown");
   const [repeat, setRepeat] = useState(false);
   const [error, setError] = useState("");
 
@@ -421,12 +414,9 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   fontSize: 11,
                   cursor: "pointer",
                   background:
-                    timerType === t
-                      ? "var(--accent-dim)"
-                      : "var(--bg-overlay)",
+                    timerType === t ? "var(--accent-dim)" : "var(--bg-overlay)",
                   border: `1px solid ${timerType === t ? "var(--border-accent)" : "var(--border)"}`,
-                  color:
-                    timerType === t ? "var(--accent)" : "var(--text-muted)",
+                  color: timerType === t ? "var(--accent)" : "var(--text-muted)",
                   textTransform: "capitalize",
                 }}
               >
@@ -519,7 +509,11 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         formatScheduleDays(scheduleDays) === preset.label
                           ? "var(--accent-dim)"
                           : "var(--bg-overlay)",
-                      border: `1px solid ${formatScheduleDays(scheduleDays) === preset.label ? "var(--border-accent)" : "var(--border)"}`,
+                      border: `1px solid ${
+                        formatScheduleDays(scheduleDays) === preset.label
+                          ? "var(--border-accent)"
+                          : "var(--border)"
+                      }`,
                       color:
                         formatScheduleDays(scheduleDays) === preset.label
                           ? "var(--accent)"
@@ -571,16 +565,13 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   ? "Select at least one day"
                   : `Next run: ${
                       nextSchedule
-                        ? new Date(nextSchedule.nextAt).toLocaleString(
-                            "en-US",
-                            {
-                              weekday: "short",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )
+                        ? new Date(nextSchedule.nextAt).toLocaleString("en-US", {
+                            weekday: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            month: "short",
+                            day: "numeric",
+                          })
                         : "-"
                     }`}
               </div>
@@ -665,10 +656,14 @@ const CreateTimerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 export const TimerView: React.FC = () => {
   const { timers, showCreateTimer, setShowCreateTimer } = useStore();
 
-  const active = timers.filter(
-    (t) => t.status === "running" || t.status === "paused",
+  const active = useMemo(
+    () => timers.filter((t) => t.status === "running" || t.status === "paused"),
+    [timers],
   );
-  const expired = timers.filter((t) => t.status === "expired");
+  const expired = useMemo(
+    () => timers.filter((t) => t.status === "expired"),
+    [timers],
+  );
 
   return (
     <div style={{ padding: "24px", height: "100%", overflowY: "auto" }}>

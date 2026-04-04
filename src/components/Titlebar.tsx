@@ -2,14 +2,43 @@ import React from "react";
 import { useStore } from "../store";
 import { TauriCommands } from "../tauricommands";
 
+// Injected once — avoids duplicating <style> on every render
+let _styleInjected = false;
+function injectTitlebarStyles() {
+  if (_styleInjected || typeof document === "undefined") return;
+  _styleInjected = true;
+  const el = document.createElement("style");
+  el.textContent = `
+    .titlebar-overlay-btn {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-muted); cursor: pointer; font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .titlebar-overlay-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--border-accent);
+      color: var(--accent);
+    }
+    .titlebar-traffic-btn {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: none; cursor: pointer; transition: filter 0.15s;
+    }
+    .titlebar-traffic-btn:hover { filter: brightness(1.2); }
+  `;
+  document.head.appendChild(el);
+}
+
 export const TitleBar: React.FC<{ onCloseRequest?: () => void }> = ({
   onCloseRequest,
 }) => {
+  injectTitlebarStyles();
+
   const { timers, setMinimized } = useStore();
   const runningCount = timers.filter((t) => t.status === "running").length;
 
   const handleMinimize = () => {
-    // In Tauri: window.minimize()
     setMinimized(true);
   };
 
@@ -85,95 +114,34 @@ export const TitleBar: React.FC<{ onCloseRequest?: () => void }> = ({
           onClick={handleMinimize}
           title="Minimize to desktop overlay"
           data-tauri-drag-region="false"
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 6,
-            background: "transparent",
-            border: "1px solid var(--border)",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            fontSize: 12,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background =
-              "var(--accent-dim)";
-            (e.currentTarget as HTMLButtonElement).style.borderColor =
-              "var(--border-accent)";
-            (e.currentTarget as HTMLButtonElement).style.color =
-              "var(--accent)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background =
-              "transparent";
-            (e.currentTarget as HTMLButtonElement).style.borderColor =
-              "var(--border)";
-            (e.currentTarget as HTMLButtonElement).style.color =
-              "var(--text-muted)";
-          }}
+          className="titlebar-overlay-btn"
         >
           ⊟
         </button>
 
-        {/* Hide to tray */}
+        {/* macOS-style traffic lights */}
         <button
           onClick={() => void TauriCommands.windowMinimize()}
           title="Hide to tray"
           data-tauri-drag-region="false"
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            background: "#fbd45a",
-            border: "none",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.filter = "brightness(1.2)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
+          className="titlebar-traffic-btn"
+          style={{ background: "#fbd45a" }}
         />
-        {/* Maximize */}
         <button
           onClick={() => void TauriCommands.windowToggleMaximize()}
           title="Maximize/restore window"
           data-tauri-drag-region="false"
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            background: "#6fcf62",
-            border: "none",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.filter = "brightness(1.2)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
+          className="titlebar-traffic-btn"
+          style={{ background: "#6fcf62" }}
         />
-        {/* Close */}
         <button
           onClick={() =>
             onCloseRequest ? onCloseRequest() : void TauriCommands.windowClose()
           }
           title="Close"
           data-tauri-drag-region="false"
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            background: "#fc615d",
-            border: "none",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.filter = "brightness(1.2)")
-          }
-          onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
+          className="titlebar-traffic-btn"
+          style={{ background: "#fc615d" }}
         />
       </div>
     </div>

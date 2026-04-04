@@ -1,11 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { ActionSource, PowerAction } from "../store";
+// ActionSource now includes "manual" for direct PowerView invocations
+import type { PowerAction } from "../store";
 import { ACTION_META } from "../utils";
 import { Btn } from "./ui";
 
+// Extended locally so PowerView can pass "manual" without touching store types
+type ModalActionSource = "timer" | "battery" | "manual";
+
 export const ActionConfirmModal: React.FC<{
   action: PowerAction;
-  source: ActionSource;
+  source: ModalActionSource;
   label: string;
   seconds?: number;
   onConfirm: () => void;
@@ -28,11 +32,28 @@ export const ActionConfirmModal: React.FC<{
     return () => clearTimeout(id);
   }, [count]);
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onCancel]);
+
   const circ = 2 * Math.PI * 32;
   const offset = circ * (count / seconds);
 
+  const sourceLabel =
+    source === "manual"
+      ? "Direct action"
+      : source === "timer"
+        ? "Timer"
+        : "Battery rule";
+
   return (
     <div
+      onClick={(e) => e.target === e.currentTarget && onCancel()}
       style={{
         position: "fixed",
         inset: 0,
@@ -112,8 +133,13 @@ export const ActionConfirmModal: React.FC<{
           {meta.label} in {count}s
         </h2>
         <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
-          Triggered via <span style={{ color: "var(--text-secondary)" }}>{source}</span> •{" "}
+          Triggered via{" "}
+          <span style={{ color: "var(--text-secondary)" }}>{sourceLabel}</span>{" "}
+          •{" "}
           <span style={{ color: "var(--text-secondary)" }}>{label}</span>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+          Press <kbd style={{ fontFamily: "var(--font-mono)", fontSize: 10, padding: "1px 4px", border: "1px solid var(--border)", borderRadius: 3 }}>Esc</kbd> to cancel
         </div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
