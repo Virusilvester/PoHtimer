@@ -54,6 +54,8 @@ const App: React.FC = () => {
     updateSettings,
     setView,
     setShowCreateTimer,
+    missedNotifications,
+    clearMissedNotifications,
   } = useStore();
 
   const prevBattery = useRef(battery);
@@ -96,6 +98,26 @@ const App: React.FC = () => {
     applyTheme({ theme: settings.theme, accentColor: settings.accentColor });
   }, [settings.accentColor, settings.theme]);
 
+  useEffect(() => {
+    if (!missedNotifications.length) return;
+    missedNotifications.forEach((missed) => {
+      if (missed.kind === "repeat") {
+        const count = missed.count ?? 1;
+        const times = count === 1 ? "once" : `${count} times`;
+        void TauriCommands.sendNotification(
+          "PoHtimer",
+          `"${missed.label}" missed ${times} while PoHtimer was closed. Timer reset.`,
+        );
+        return;
+      }
+      void TauriCommands.sendNotification(
+        "PoHtimer",
+        `"${missed.label}" missed while PoHtimer was closed. Next occurrence scheduled.`,
+      );
+    });
+    clearMissedNotifications();
+  }, [missedNotifications, clearMissedNotifications]);
+
   const overlayMode = settings.minimizeMode;
   useEffect(() => {
     if (isMinimized) {
@@ -119,7 +141,6 @@ const App: React.FC = () => {
       if (hydrationHandled.current) return;
       hydrationHandled.current = true;
 
-      s.syncTimersAfterDowntime();
       if (s.settings.startMinimized) s.setMinimized(true);
 
       autostartInitialized.current = true;

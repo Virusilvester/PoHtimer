@@ -22,6 +22,13 @@ export type View =
 export type ClockMode = "digital" | "analog";
 export type ActionSource = "timer" | "battery";
 
+export interface MissedNotification {
+  id: string;
+  label: string;
+  kind: "repeat" | "schedule";
+  count?: number;
+}
+
 export interface ActionRequest {
   id: string;
   source: ActionSource;
@@ -120,6 +127,7 @@ interface AppState {
   battery: BatteryState;
   clockMode: ClockMode;
   lastTickAt: number | null;
+  missedNotifications: MissedNotification[];
 
   setView: (v: View) => void;
   setMinimized: (v: boolean) => void;
@@ -135,6 +143,7 @@ interface AppState {
   resetTimer: (id: string) => void;
   tickTimers: () => void;
   syncTimersAfterDowntime: () => void;
+  clearMissedNotifications: () => void;
 
   addBatteryRule: (r: Omit<BatteryRule, "id">) => void;
   updateBatteryRule: (id: string, patch: Partial<BatteryRule>) => void;
@@ -215,6 +224,7 @@ export const useStore = create<AppState>()(
       },
       clockMode: "digital",
       lastTickAt: null,
+      missedNotifications: [],
 
       setView: (view) => set({ view }),
       setMinimized: (isMinimized) => set({ isMinimized }),
@@ -456,7 +466,8 @@ export const useStore = create<AppState>()(
       syncTimersAfterDowntime: () =>
         set((s) => {
           const now = Date.now();
-          let changed = false;
+          const missedNotifications: MissedNotification[] = [];
+          const missedHistory: HistoryEntry[] = [];
           const timers = s.timers.map((t) => {
             if (t.status !== "running") return t;
 
@@ -465,6 +476,22 @@ export const useStore = create<AppState>()(
             if (elapsedSeconds <= 0) return t;
 
             if (t.kind === "schedule" && t.scheduleTime) {
+              const dueAt =
+                t.nextFireAt ?? lastActiveAt + t.remaining * 1000;
+              if (dueAt <= now) {
+                missedNotifications.push({
+                  id: t.id,
+                  label: t.label,
+                  kind: "schedule",
+                });
+                missedHistory.push({
+                  id: uid(),
+                  label: `${t.label} (missed)`,
+                  action: t.action,
+                  timestamp: now,
+                  source: "timer",
+                });
+              }
               const next = nextScheduleOccurrence(
                 t.scheduleTime,
                 t.scheduleDays,
@@ -476,7 +503,6 @@ export const useStore = create<AppState>()(
                   remaining: 0,
                   status: "paused" as TimerStatus,
                 };
-              changed = true;
               return {
                 ...t,
                 remaining: next.seconds,
@@ -487,38 +513,62 @@ export const useStore = create<AppState>()(
               };
             }
 
-            const remaining = t.remaining - elapsedSeconds;
-            if (remaining > 0) {
-              if (remaining !== t.remaining) changed = true;
+            if (t.repeat) {
+              if (elapsedSeconds >= t.remaining) {
+                const duration = Math.max(1, t.duration);
+                const count =
+                  1 + Math.floor((elapsedSeconds - t.remaining) / duration);
+                missedNotifications.push({
+                  id: t.id,
+                  label: t.label,
+                  kind: "repeat",
+                  count,
+                });
+                missedHistory.push({
+                  id: uid(),
+                  label:
+                    count > 1
+                      ? `${t.label} (missed x${count})`
+                      : `${t.label} (missed)`,
+                  action: t.action,
+                  timestamp: now,
+                  source: "timer",
+                });
+                return {
+                  ...t,
+                  remaining: duration,
+                  warnedAt: undefined,
+                  firedAt: now,
+                  updatedAt: now,
+                };
+              }
+
+              const remaining = t.remaining - elapsedSeconds;
               return { ...t, remaining, updatedAt: now };
             }
 
-            if (!t.repeat) {
-              changed = true;
-              return {
-                ...t,
-                remaining: 0,
-                status: "expired" as TimerStatus,
-                firedAt: now,
-                updatedAt: now,
-              };
+            const remaining = t.remaining - elapsedSeconds;
+            if (remaining > 0) {
+              return { ...t, remaining, updatedAt: now };
             }
 
-            const duration = Math.max(1, t.duration);
-            const elapsedAfterFire = Math.max(0, elapsedSeconds - t.remaining);
-            const mod = elapsedAfterFire % duration;
-            const nextRemaining = duration - mod;
-            changed = true;
             return {
               ...t,
-              remaining: nextRemaining,
-              warnedAt: undefined,
+              remaining: 0,
+              status: "expired" as TimerStatus,
               firedAt: now,
               updatedAt: now,
             };
           });
 
-          return changed ? { timers, lastTickAt: now } : { lastTickAt: now };
+          return {
+            timers,
+            lastTickAt: now,
+            missedNotifications,
+            history: missedHistory.length
+              ? [...missedHistory, ...s.history].slice(0, 200)
+              : s.history,
+          };
         }),
 
       addBatteryRule: (r) =>
@@ -582,6 +632,7 @@ export const useStore = create<AppState>()(
         })),
 
       setBattery: (battery) => set({ battery }),
+      clearMissedNotifications: () => set({ missedNotifications: [] }),
     }),
     {
       name: "PoHtimer:v1",
