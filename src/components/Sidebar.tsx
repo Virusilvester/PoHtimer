@@ -193,7 +193,7 @@ export const Sidebar: React.FC = () => {
           }}
         >
           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
-            PoHtimer v0.1.4
+            PoHtimer v0.1.5
           </span>
           <span
             style={{
