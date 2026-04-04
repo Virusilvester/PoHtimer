@@ -61,8 +61,15 @@ const App: React.FC = () => {
   const wasOverlay = useRef(false);
   const autostartInitialized = useRef(false);
   const lastAutostart = useRef<boolean | null>(null);
+  const autostartSyncId = useRef(0);
+  const hydrationHandled = useRef(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [dontAskClose, setDontAskClose] = useState(false);
+  const isTauriApp =
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window ||
+      "__TAURI__" in window ||
+      "__TAURI_METADATA__" in window);
 
   const performClose = (action: "minimize" | "exit") => {
     if (action === "exit") return void TauriCommands.exitApp();
@@ -108,11 +115,16 @@ const App: React.FC = () => {
   }, [isMinimized, settings.clockSize, overlayMode, settings.minimizeMode]);
 
   useEffect(() => {
-    const unsub = useStore.persist.onFinishHydration((s) => {
+    const handleHydrated = (s: ReturnType<typeof useStore.getState>) => {
+      if (hydrationHandled.current) return;
+      hydrationHandled.current = true;
+
+      s.syncTimersAfterDowntime();
       if (s.settings.startMinimized) s.setMinimized(true);
 
       autostartInitialized.current = true;
       lastAutostart.current = s.settings.autostart;
+      const syncId = ++autostartSyncId.current;
 
       window.setTimeout(() => {
         void TauriCommands.closeSplashscreen();
@@ -121,11 +133,26 @@ const App: React.FC = () => {
         }
       }, 3500);
 
-      void (async () => {
-        const enabled = await TauriCommands.getAutostartEnabled().catch(() => null);
-        if (enabled == null) return;
-        if (enabled !== s.settings.autostart) s.updateSettings({ autostart: enabled });
-      })();
+      if (isTauriApp) {
+        void (async () => {
+          const enabled = await TauriCommands.getAutostartEnabled().catch(
+            () => null,
+          );
+          if (enabled == null) return;
+          if (syncId !== autostartSyncId.current) return;
+          const current = useStore.getState().settings.autostart;
+          if (enabled !== current)
+            useStore.getState().updateSettings({ autostart: enabled });
+        })();
+      }
+    };
+
+    if (useStore.persist.hasHydrated()) {
+      handleHydrated(useStore.getState());
+    }
+
+    const unsub = useStore.persist.onFinishHydration((s) => {
+      handleHydrated(s);
     });
     return unsub;
   }, []);
@@ -134,8 +161,10 @@ const App: React.FC = () => {
     if (!autostartInitialized.current) return;
     if (lastAutostart.current === settings.autostart) return;
     lastAutostart.current = settings.autostart;
+    const syncId = ++autostartSyncId.current;
 
     void TauriCommands.setAutostart(settings.autostart).catch((e) => {
+      if (syncId !== autostartSyncId.current) return;
       lastAutostart.current = !settings.autostart;
       updateSettings({ autostart: !settings.autostart });
       void TauriCommands.sendNotification("PoHtimer", `Failed to set autostart: ${String(e)}`);

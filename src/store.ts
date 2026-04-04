@@ -49,6 +49,7 @@ export interface TimerEntry {
   action: PowerAction;
   status: TimerStatus;
   createdAt: number;
+  updatedAt?: number;
   firedAt?: number;
   repeat: boolean;
   warnedAt?: number;
@@ -89,7 +90,14 @@ export interface Settings {
     | "matrix"
     | "segment"
     | "flip";
-  analogWatchStyle: "classic" | "neon" | "minimal" | "halo" | "swiss" | "stealth" | "orbital";
+  analogWatchStyle:
+    | "classic"
+    | "neon"
+    | "minimal"
+    | "halo"
+    | "swiss"
+    | "stealth"
+    | "orbital";
   clockSize: number;
   clockPosition: { x: number; y: number };
   notifyBeforeSeconds: number;
@@ -111,6 +119,7 @@ interface AppState {
   settings: Settings;
   battery: BatteryState;
   clockMode: ClockMode;
+  lastTickAt: number | null;
 
   setView: (v: View) => void;
   setMinimized: (v: boolean) => void;
@@ -125,6 +134,7 @@ interface AppState {
   toggleTimer: (id: string) => void;
   resetTimer: (id: string) => void;
   tickTimers: () => void;
+  syncTimersAfterDowntime: () => void;
 
   addBatteryRule: (r: Omit<BatteryRule, "id">) => void;
   updateBatteryRule: (id: string, patch: Partial<BatteryRule>) => void;
@@ -204,6 +214,7 @@ export const useStore = create<AppState>()(
         isCritical: false,
       },
       clockMode: "digital",
+      lastTickAt: null,
 
       setView: (view) => set({ view }),
       setMinimized: (isMinimized) => set({ isMinimized }),
@@ -211,38 +222,43 @@ export const useStore = create<AppState>()(
       setShowCreateTimer: (showCreateTimer) => set({ showCreateTimer }),
 
       addTimer: (t) =>
-        set((s) => ({
-          timers: [
-            ...s.timers,
-            (() => {
-              const now = Date.now();
-              if (t.kind === "schedule" && t.scheduleTime) {
-                const next = nextScheduleOccurrence(
-                  t.scheduleTime,
-                  t.scheduleDays,
-                  new Date(now),
-                );
-                const seconds = next?.seconds ?? t.duration;
+        set((s) => {
+          const now = Date.now();
+          return {
+            timers: [
+              ...s.timers,
+              (() => {
+                if (t.kind === "schedule" && t.scheduleTime) {
+                  const next = nextScheduleOccurrence(
+                    t.scheduleTime,
+                    t.scheduleDays,
+                    new Date(now),
+                  );
+                  const seconds = next?.seconds ?? t.duration;
+                  return {
+                    ...t,
+                    id: uid(),
+                    createdAt: now,
+                    updatedAt: now,
+                    remaining: seconds,
+                    duration: seconds,
+                    status: "running",
+                    nextFireAt: next?.nextAt,
+                  };
+                }
                 return {
                   ...t,
                   id: uid(),
                   createdAt: now,
-                  remaining: seconds,
-                  duration: seconds,
+                  updatedAt: now,
+                  remaining: t.duration,
                   status: "running",
-                  nextFireAt: next?.nextAt,
                 };
-              }
-              return {
-                ...t,
-                id: uid(),
-                createdAt: now,
-                remaining: t.duration,
-                status: "running",
-              };
-            })(),
-          ],
-        })),
+              })(),
+            ],
+            lastTickAt: now,
+          };
+        }),
 
       updateTimer: (id, patch) =>
         set((s) => ({
@@ -256,8 +272,10 @@ export const useStore = create<AppState>()(
         })),
 
       toggleTimer: (id) =>
-        set((s) => ({
-          timers: s.timers.map((t) => {
+        set((s) => {
+          const now = Date.now();
+          let didStart = false;
+          const timers: TimerEntry[] = s.timers.map((t): TimerEntry => {
             if (t.id !== id) return t;
             if (t.status === "running") return { ...t, status: "paused" };
             if (t.status === "paused") {
@@ -265,67 +283,84 @@ export const useStore = create<AppState>()(
                 const next = nextScheduleOccurrence(
                   t.scheduleTime,
                   t.scheduleDays,
-                  new Date(),
+                  new Date(now),
                 );
                 if (!next) return { ...t, status: "paused" };
+                didStart = true;
                 return {
                   ...t,
                   status: "running",
                   remaining: next.seconds,
                   duration: next.seconds,
                   warnedAt: undefined,
+                  updatedAt: now,
                   nextFireAt: next.nextAt,
                 };
               }
-              return { ...t, status: "running" };
+              didStart = true;
+              return { ...t, status: "running", updatedAt: now };
             }
             return t;
-          }),
-        })),
+          });
+          return didStart ? { timers, lastTickAt: now } : { timers };
+        }),
 
       resetTimer: (id) =>
-        set((s) => ({
-          timers: s.timers.map((t) => {
-            if (t.id !== id) return t;
-            if (t.kind === "schedule" && t.scheduleTime) {
-              const next = nextScheduleOccurrence(
-                t.scheduleTime,
-                t.scheduleDays,
-                new Date(),
-              );
-              if (!next) return { ...t };
+        set((s) => {
+          const now = Date.now();
+          return {
+            timers: s.timers.map((t) => {
+              if (t.id !== id) return t;
+              if (t.kind === "schedule" && t.scheduleTime) {
+                const next = nextScheduleOccurrence(
+                  t.scheduleTime,
+                  t.scheduleDays,
+                  new Date(now),
+                );
+                if (!next) return { ...t };
+                return {
+                  ...t,
+                  remaining: next.seconds,
+                  duration: next.seconds,
+                  status: "running" as TimerStatus,
+                  warnedAt: undefined,
+                  updatedAt: now,
+                  nextFireAt: next.nextAt,
+                };
+              }
               return {
                 ...t,
-                remaining: next.seconds,
-                duration: next.seconds,
-                status: "running",
+                remaining: t.duration,
+                status: "running" as TimerStatus,
                 warnedAt: undefined,
-                nextFireAt: next.nextAt,
+                updatedAt: now,
               };
-            }
-            return {
-              ...t,
-              remaining: t.duration,
-              status: "running",
-              warnedAt: undefined,
-            };
-          }),
-        })),
+            }),
+            lastTickAt: now,
+          };
+        }),
 
       tickTimers: () => {
         set((s) => {
           const now = Date.now();
+          const lastTick = s.lastTickAt ?? now;
+          const elapsedSeconds = Math.floor((now - lastTick) / 1000);
+          if (elapsedSeconds <= 0) {
+            if (s.lastTickAt == null) return { lastTickAt: now };
+            return {};
+          }
           const pendingActions = [...s.pendingActions];
 
           const timers = s.timers.map((t) => {
             if (t.status !== "running") return t;
 
             if (t.kind === "schedule" && t.scheduleTime) {
-              const remaining = t.remaining - 1;
+              const remaining = t.remaining - elapsedSeconds;
               if (remaining > 0)
                 return {
                   ...t,
                   remaining,
+                  updatedAt: now,
                 };
 
               const alreadyQueued = pendingActions.some(
@@ -348,6 +383,7 @@ export const useStore = create<AppState>()(
                   remaining: 0,
                   status: "expired" as TimerStatus,
                   firedAt: now,
+                  updatedAt: now,
                 };
               }
 
@@ -370,12 +406,13 @@ export const useStore = create<AppState>()(
                 status: "running" as TimerStatus,
                 firedAt: now,
                 warnedAt: undefined,
+                updatedAt: now,
                 nextFireAt: next.nextAt,
               };
             }
 
-            const remaining = t.remaining - 1;
-            if (remaining > 0) return { ...t, remaining };
+            const remaining = t.remaining - elapsedSeconds;
+            if (remaining > 0) return { ...t, remaining, updatedAt: now };
 
             const alreadyQueued = pendingActions.some(
               (a) => a.source === "timer" && a.timerId === t.id,
@@ -391,19 +428,98 @@ export const useStore = create<AppState>()(
               });
             }
 
-            if (t.repeat)
-              return { ...t, remaining: t.duration, warnedAt: undefined };
+            if (t.repeat) {
+              const duration = Math.max(1, t.duration);
+              const elapsedAfterFire = Math.max(0, elapsedSeconds - t.remaining);
+              const mod = elapsedAfterFire % duration;
+              const nextRemaining = duration - mod;
+              return {
+                ...t,
+                remaining: nextRemaining,
+                warnedAt: undefined,
+                updatedAt: now,
+              };
+            }
             return {
               ...t,
               remaining: 0,
               status: "expired" as TimerStatus,
               firedAt: now,
+              updatedAt: now,
             };
           });
 
-          return { timers, pendingActions };
+          return { timers, pendingActions, lastTickAt: now };
         });
       },
+
+      syncTimersAfterDowntime: () =>
+        set((s) => {
+          const now = Date.now();
+          let changed = false;
+          const timers = s.timers.map((t) => {
+            if (t.status !== "running") return t;
+
+            const lastActiveAt = t.updatedAt ?? s.lastTickAt ?? t.createdAt;
+            const elapsedSeconds = Math.floor((now - lastActiveAt) / 1000);
+            if (elapsedSeconds <= 0) return t;
+
+            if (t.kind === "schedule" && t.scheduleTime) {
+              const next = nextScheduleOccurrence(
+                t.scheduleTime,
+                t.scheduleDays,
+                new Date(now),
+              );
+              if (!next)
+                return {
+                  ...t,
+                  remaining: 0,
+                  status: "paused" as TimerStatus,
+                };
+              changed = true;
+              return {
+                ...t,
+                remaining: next.seconds,
+                duration: next.seconds,
+                warnedAt: undefined,
+                updatedAt: now,
+                nextFireAt: next.nextAt,
+              };
+            }
+
+            const remaining = t.remaining - elapsedSeconds;
+            if (remaining > 0) {
+              if (remaining !== t.remaining) changed = true;
+              return { ...t, remaining, updatedAt: now };
+            }
+
+            if (!t.repeat) {
+              changed = true;
+              return {
+                ...t,
+                remaining: 0,
+                status: "expired" as TimerStatus,
+                firedAt: now,
+                updatedAt: now,
+              };
+            }
+
+            const duration = Math.max(1, t.duration);
+            const elapsedAfterFire = Math.max(0, elapsedSeconds - t.remaining);
+            const mod = elapsedAfterFire % duration;
+            const nextRemaining = duration - mod;
+            changed = true;
+            return {
+              ...t,
+              remaining: nextRemaining,
+              warnedAt: undefined,
+              firedAt: now,
+              updatedAt: now,
+            };
+          });
+
+          return changed ? { timers, lastTickAt: now } : { lastTickAt: now };
+        }),
 
       addBatteryRule: (r) =>
         set((s) => ({
@@ -470,15 +586,18 @@ export const useStore = create<AppState>()(
     {
       name: "PoHtimer:v1",
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state, error) => {
+        if (error || !state) return;
+        state.syncTimersAfterDowntime();
+      },
       partialize: (s) => ({
         view: s.view,
-        timers: s.timers.map((t) =>
-          t.status === "running" ? { ...t, status: "paused" } : t,
-        ),
+        timers: s.timers,
         batteryRules: s.batteryRules,
         history: s.history,
         settings: s.settings,
         clockMode: s.clockMode,
+        lastTickAt: s.lastTickAt,
       }),
     },
   ),

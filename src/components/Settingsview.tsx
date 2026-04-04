@@ -1,6 +1,5 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { useStore } from "../store";
-import { TauriCommands } from "../tauricommands";
 import { Card, Toggle, Slider, SectionHeader } from "./ui";
 
 /* ─── SettingRow ─────────────────────────────────────── */
@@ -961,21 +960,6 @@ const StyleGrid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 /* ─── Main SettingsView ───────────────────────────────── */
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings } = useStore();
-
-  useEffect(() => {
-    let mounted = true;
-    void (async () => {
-      const enabled = await TauriCommands.getAutostartEnabled().catch(
-        () => null,
-      );
-      if (!mounted || enabled == null) return;
-      if (enabled !== settings.autostart)
-        updateSettings({ autostart: enabled });
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [updateSettings]);
 
   return (
     <div style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
