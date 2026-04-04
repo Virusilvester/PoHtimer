@@ -392,15 +392,23 @@ fn window_close(app: tauri::AppHandle) -> Result<(), String> {
 // ── Notification ─────────────────────────────────────────────
 #[tauri::command]
 fn send_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
-    let _ = (title, body);
-    let win = main_window(&app)?;
-    let visible = win.is_visible().unwrap_or(true);
-    if !visible {
-        let _ = win.show();
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_notification::NotificationExt;
+        app.notification()
+            .builder()
+            .title(title)
+            .body(body)
+            .show()
+            .map_err(|e| e.to_string())?;
+        return Ok(());
     }
-    let _ = win.set_focus();
-    let _ = win.request_user_attention(Some(tauri::UserAttentionType::Informational));
-    Ok(())
+
+    #[allow(unreachable_code)]
+    {
+        let _ = (title, body);
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -571,6 +579,7 @@ pub fn run() {
 
             Ok(())
         })
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             shutdown_system,
             restart_system,

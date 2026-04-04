@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useStore, type PowerAction } from "../store";
 import { ActionBadge, Btn, SectionHeader, EmptyState } from "./ui";
 import { ACTION_META } from "../utils";
@@ -90,7 +90,7 @@ export const HistoryView: React.FC = () => {
       <div style={{ flex: 1, overflowY: "auto" }}>
         {filtered.length === 0 ? (
           <EmptyState
-            icon="≡"
+            icon="â‰¡"
             title="No events yet"
             subtitle="Events will appear here when timers or battery rules trigger"
           />
@@ -174,7 +174,7 @@ export const HistoryView: React.FC = () => {
                       >
                         <span>
                           via{" "}
-                          {h.source === "timer" ? "◷ Timer" : "⚡ Battery rule"}
+                          {h.source === "timer" ? "â—· Timer" : h.source === "battery" ? "âš¡ Battery rule" : "â—· System"}
                         </span>
                       </div>
                     </div>

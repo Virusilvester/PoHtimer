@@ -50,12 +50,12 @@ const App: React.FC = () => {
     enqueueAction,
     dequeueAction,
     updateTimer,
-    addHistory,
     updateSettings,
     setView,
     setShowCreateTimer,
     missedNotifications,
     clearMissedNotifications,
+    addHistory,
   } = useStore();
 
   const prevBattery = useRef(battery);
@@ -67,11 +67,48 @@ const App: React.FC = () => {
   const hydrationHandled = useRef(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [dontAskClose, setDontAskClose] = useState(false);
+  const [inAppNotices, setInAppNotices] = useState<
+    { id: string; title: string; body: string }[]
+  >([]);
   const isTauriApp =
     typeof window !== "undefined" &&
     ("__TAURI_INTERNALS__" in window ||
       "__TAURI__" in window ||
       "__TAURI_METADATA__" in window);
+
+  const pushInAppNotice = (title: string, body: string) => {
+    const id = Math.random().toString(36).slice(2, 10);
+    setInAppNotices((items) => [...items, { id, title, body }]);
+    window.setTimeout(() => {
+      setInAppNotices((items) => items.filter((n) => n.id !== id));
+    }, 7000);
+  };
+
+  const dismissInAppNotice = (id: string) => {
+    setInAppNotices((items) => items.filter((n) => n.id !== id));
+  };
+
+  const notify = async (
+    title: string,
+    body: string,
+    options?: { skipHistory?: boolean },
+  ) => {
+    try {
+      await TauriCommands.sendNotification(title, body);
+    } catch (e) {
+      pushInAppNotice(title, body);
+      if (!options?.skipHistory) {
+        addHistory({
+          label: `Notification failed: ${title}`,
+          action: "none",
+          timestamp: Date.now(),
+          source: "system",
+          result: "failed",
+          error: body,
+        });
+      }
+    }
+  };
 
   const performClose = (action: "minimize" | "exit") => {
     if (action === "exit") return void TauriCommands.exitApp();
@@ -104,19 +141,21 @@ const App: React.FC = () => {
       if (missed.kind === "repeat") {
         const count = missed.count ?? 1;
         const times = count === 1 ? "once" : `${count} times`;
-        void TauriCommands.sendNotification(
+        void notify(
           "PoHtimer",
           `"${missed.label}" missed ${times} while PoHtimer was closed. Timer reset.`,
+          { skipHistory: true },
         );
         return;
       }
-      void TauriCommands.sendNotification(
+      void notify(
         "PoHtimer",
         `"${missed.label}" missed while PoHtimer was closed. Next occurrence scheduled.`,
+        { skipHistory: true },
       );
     });
     clearMissedNotifications();
-  }, [missedNotifications, clearMissedNotifications]);
+  }, [missedNotifications, clearMissedNotifications, notify]);
 
   const overlayMode = settings.minimizeMode;
   useEffect(() => {
@@ -188,9 +227,9 @@ const App: React.FC = () => {
       if (syncId !== autostartSyncId.current) return;
       lastAutostart.current = !settings.autostart;
       updateSettings({ autostart: !settings.autostart });
-      void TauriCommands.sendNotification("PoHtimer", `Failed to set autostart: ${String(e)}`);
+      void notify("PoHtimer", `Failed to set autostart: ${String(e)}`);
     });
-  }, [settings.autostart, updateSettings]);
+  }, [settings.autostart, updateSettings, notify]);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -349,13 +388,13 @@ const App: React.FC = () => {
       if (t.remaining <= 0) continue;
       if (t.remaining > lead) continue;
 
-      void TauriCommands.sendNotification(
+      void notify(
         "PoHtimer",
         `"${t.label}" will fire in ${t.remaining}s`,
       );
       updateTimer(t.id, { warnedAt: Date.now() });
     }
-  }, [settings.notifyBeforeSeconds, timers, updateTimer]);
+  }, [settings.notifyBeforeSeconds, timers, updateTimer, notify]);
 
   const current = pendingActions[0];
   const shouldConfirm =
@@ -380,7 +419,7 @@ const App: React.FC = () => {
 
     try {
       if (req.action === "none") {
-        await TauriCommands.sendNotification("PoHtimer", `"${req.label}" completed`);
+        await notify("PoHtimer", `"${req.label}" completed`, { skipHistory: true });
         finalizeRequest(req, "executed");
         return;
       }
@@ -434,6 +473,52 @@ const App: React.FC = () => {
       }}
     >
       <TitleBar onCloseRequest={handleCloseRequest} />
+      {inAppNotices.length > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            top: 12,
+            right: 12,
+            zIndex: 400,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            maxWidth: "min(360px, calc(100vw - 24px))",
+          }}
+        >
+          {inAppNotices.map((n) => (
+            <div
+              key={n.id}
+              onClick={() => dismissInAppNotice(n.id)}
+              style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: "10px 12px",
+                boxShadow: "var(--shadow-md)",
+                cursor: "pointer",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "var(--text-primary)",
+                  marginBottom: 2,
+                }}
+              >
+                {n.title}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                {n.body}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+                Click to dismiss
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar />
         <main

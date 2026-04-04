@@ -21,6 +21,7 @@ export type View =
   | "settings";
 export type ClockMode = "digital" | "analog";
 export type ActionSource = "timer" | "battery";
+export type HistorySource = "timer" | "battery" | "system";
 
 export interface MissedNotification {
   id: string;
@@ -80,7 +81,7 @@ export interface HistoryEntry {
   label: string;
   action: PowerAction;
   timestamp: number;
-  source: "timer" | "battery";
+  source: HistorySource;
   result?: "executed" | "canceled" | "failed";
   error?: string;
 }
