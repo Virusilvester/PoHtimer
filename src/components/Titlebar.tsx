@@ -2,39 +2,9 @@ import React from "react";
 import { useStore } from "../store";
 import { TauriCommands } from "../tauricommands";
 
-// Injected once — avoids duplicating <style> on every render
-let _styleInjected = false;
-function injectTitlebarStyles() {
-  if (_styleInjected || typeof document === "undefined") return;
-  _styleInjected = true;
-  const el = document.createElement("style");
-  el.textContent = `
-    .titlebar-overlay-btn {
-      width: 26px; height: 26px; border-radius: 6px;
-      background: transparent; border: 1px solid var(--border);
-      color: var(--text-muted); cursor: pointer; font-size: 12px;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .titlebar-overlay-btn:hover {
-      background: var(--accent-dim);
-      border-color: var(--border-accent);
-      color: var(--accent);
-    }
-    .titlebar-traffic-btn {
-      width: 12px; height: 12px; border-radius: 50%;
-      border: none; cursor: pointer; transition: filter 0.15s;
-    }
-    .titlebar-traffic-btn:hover { filter: brightness(1.2); }
-  `;
-  document.head.appendChild(el);
-}
-
 export const TitleBar: React.FC<{ onCloseRequest?: () => void }> = ({
   onCloseRequest,
 }) => {
-  injectTitlebarStyles();
-
   const { timers, setMinimized } = useStore();
   const runningCount = timers.filter((t) => t.status === "running").length;
 
