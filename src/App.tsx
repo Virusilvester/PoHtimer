@@ -70,11 +70,16 @@ const App: React.FC = () => {
   const [inAppNotices, setInAppNotices] = useState<
     { id: string; title: string; body: string }[]
   >([]);
+  const [uiWarning, setUiWarning] = useState<string | null>(null);
   const isTauriApp =
     typeof window !== "undefined" &&
     ("__TAURI_INTERNALS__" in window ||
       "__TAURI__" in window ||
       "__TAURI_METADATA__" in window);
+  const isProdBuild =
+    typeof import.meta !== "undefined" &&
+    (import.meta as any).env &&
+    (import.meta as any).env.PROD;
 
   const pushInAppNotice = (title: string, body: string) => {
     const id = Math.random().toString(36).slice(2, 10);
@@ -109,6 +114,38 @@ const App: React.FC = () => {
       }
     }
   };
+
+  useEffect(() => {
+    if (!isProdBuild) return;
+    const checkUi = () => {
+      const titleBtn = document.querySelector(
+        ".titlebar-traffic-btn",
+      ) as HTMLElement | null;
+      const sidebarBtn = document.querySelector(
+        ".sidebar-nav-btn",
+      ) as HTMLElement | null;
+
+      const titleOk =
+        !!titleBtn && titleBtn.offsetWidth >= 10 && titleBtn.offsetHeight >= 10;
+      const sidebarOk =
+        !!sidebarBtn && sidebarBtn.offsetHeight >= 20 && sidebarBtn.offsetWidth >= 80;
+
+      if (!titleOk || !sidebarOk) {
+        setUiWarning(
+          "UI styles did not load correctly. Try restarting the app or reinstalling.",
+        );
+      } else {
+        setUiWarning(null);
+      }
+    };
+
+    const initial = window.setTimeout(checkUi, 2000);
+    const interval = window.setInterval(checkUi, 8000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [isProdBuild]);
 
   const performClose = (action: "minimize" | "exit") => {
     if (action === "exit") return void TauriCommands.exitApp();
@@ -473,6 +510,29 @@ const App: React.FC = () => {
       }}
     >
       <TitleBar onCloseRequest={handleCloseRequest} />
+      {uiWarning && (
+        <div
+          style={{
+            position: "fixed",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 410,
+            background: "rgba(255,77,77,0.18)",
+            border: "1px solid rgba(255,77,77,0.5)",
+            color: "var(--danger)",
+            padding: "8px 12px",
+            borderRadius: 10,
+            fontSize: 11,
+            fontWeight: 600,
+            boxShadow: "var(--shadow-md)",
+            maxWidth: "min(520px, calc(100vw - 24px))",
+            textAlign: "center",
+          }}
+        >
+          {uiWarning}
+        </div>
+      )}
       {inAppNotices.length > 0 && (
         <div
           style={{
